@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # One-shot server setup for Debian/Ubuntu (GCP e2-micro, Oracle Always Free, any VPS).
 # Usage on the VM:
-#   curl -fsSL https://raw.githubusercontent.com/ubakhtiyarov3/moodledeadlines/main/deploy/setup-vm.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/uBakhtiyarov3/moodledeadlines/main/deploy/setup-vm.sh | bash
 set -euo pipefail
 
-REPO="${REPO:-https://github.com/ubakhtiyarov3/moodledeadlines.git}"
+REPO="${REPO:-https://github.com/uBakhtiyarov3/moodledeadlines.git}"
 BRANCH="${BRANCH:-main}"
 DIR="${DIR:-$HOME/uwed-bot}"
 
@@ -38,7 +38,7 @@ if [ ! -f .env ]; then
   sed -i "s|^PUBLIC_URL=.*|PUBLIC_URL=https://$DOMAIN|; s|^DOMAIN=.*|DOMAIN=$DOMAIN|; s|^SECRET_KEY=.*|SECRET_KEY=$SECRET|" .env
   echo
   echo "!! .env created with PUBLIC_URL=https://$DOMAIN"
-  echo "!! Fill in BOT_TOKEN, ADMIN_IDS, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY:"
+  echo "!! Fill in BOT_TOKEN, ADMIN_IDS and GEMINI_API_KEY:"
   echo "     nano $DIR/.env"
   echo "!! then run:  cd $DIR && sudo docker compose up -d --build"
   exit 0

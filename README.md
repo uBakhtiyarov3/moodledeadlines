@@ -217,10 +217,18 @@ Bot `polling` rejimida ishlaydi — domen shart emas, HTTPS faqat Mini App uchun
 `<ip>.sslip.io` + Caddy orqali avtomatik bepul olinadi.
 
 ### 6.1 Google Cloud'da ishga tushirish
-**Cloud Shell**da (console.cloud.google.com → yuqoridagi `>_` belgisi):
+
+Ikki alohida loyiha: **`uwedpulse`** — faqat Gemini kaliti (billingsiz, bepul tarif);
+**`uwedpulse-host`** — server (billing ulangan, xarajatni Developer Program / GCP kreditlari yopadi).
+
+1. <https://console.cloud.google.com/projectcreate> → nomi `uwedpulse-host` → **Create**.
+2. Billing → **My projects** → `uwedpulse-host` → **Change billing** → *My Billing Account 1*.
+3. Billing → **Budgets & alerts** → oylik byudjet $5, 50/90/100% da email.
+4. Yuqori o'ngdagi **Cloud Shell** (`>_`) ni oching va ketma-ket:
 
 ```bash
-gcloud config set project <PROJECT_ID>
+gcloud config set project uwedpulse-host
+gcloud services enable compute.googleapis.com
 
 gcloud compute instances create uwed-bot \
   --zone=us-central1-a --machine-type=e2-micro \
@@ -233,11 +241,12 @@ gcloud compute firewall-rules create uwed-web --allow=tcp:80,tcp:443 --target-ta
 gcloud compute ssh uwed-bot --zone=us-central1-a
 ```
 
-VM ichida:
+VM ichida (branch `main` ga birlashtirilmagan bo'lsa, `BRANCH=` ni qoldiring):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ubakhtiyarov3/moodledeadlines/main/deploy/setup-vm.sh | bash
-nano ~/uwed-bot/.env          # BOT_TOKEN, ADMIN_IDS, AWS_* ni yozing
+curl -fsSL https://raw.githubusercontent.com/uBakhtiyarov3/moodledeadlines/claude/confident-goldberg-upnif2/deploy/setup-vm.sh \
+  | BRANCH=claude/confident-goldberg-upnif2 bash
+nano ~/uwed-bot/.env          # BOT_TOKEN, ADMIN_IDS, GEMINI_API_KEY ni yozing
 cd ~/uwed-bot && sudo docker compose up -d --build
 sudo docker compose logs -f bot   # "bot polling started" chiqishi kerak
 ```
