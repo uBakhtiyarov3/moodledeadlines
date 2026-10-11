@@ -108,8 +108,10 @@ async def _gemini_generate(system: str, turns: list[dict]) -> str:
     body = {
         "system_instruction": {"parts": [{"text": system}]},
         "contents": contents,
-        "generationConfig": {"maxOutputTokens": st.gemini_max_tokens, "temperature": 0.6},
+        "generationConfig": {"maxOutputTokens": st.gemini_max_tokens},
     }
+    if st.gemini_thinking_level:
+        body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": st.gemini_thinking_level}
     models = [st.gemini_model] + [m.strip() for m in st.gemini_fallback_models.split(",") if m.strip()]
     r = None
     async with _http() as c:
@@ -120,6 +122,14 @@ async def _gemini_generate(system: str, turns: list[dict]) -> str:
                     headers={"x-goog-api-key": st.gemini_api_key},
                     json=body,
                 )
+                if r.status_code == 400 and "thinking" in r.text.lower():
+                    # this model doesn't accept the thinking level → use its default
+                    plain = {**body, "generationConfig": {"maxOutputTokens": st.gemini_max_tokens}}
+                    r = await c.post(
+                        GEMINI_URL.format(model=model),
+                        headers={"x-goog-api-key": st.gemini_api_key},
+                        json=plain,
+                    )
             except httpx.TimeoutException:
                 log.warning("gemini %s timeout", model)
                 continue

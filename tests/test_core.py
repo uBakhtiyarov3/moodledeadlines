@@ -206,3 +206,20 @@ def test_kb_search_multilingual():
 
 def test_deadline_model_defaults_import():
     assert Deadline.__tablename__ == "deadlines"
+
+
+def test_markdown_to_tg_telegram_features():
+    md = (
+        "📌 **Reja**\n\n1. **Kirish**\n   - ichki *band*\n- ~~eski~~ ||javob||\n"
+        "> birinchi\n> ikkinchi\n\n`a < b`\n```\nx = 1 * 2 * 3\n```\n## Sarlavha\n| A | B |\n|---|---|\n---\nsnake_case_name"
+    )
+    out = markdown_to_tg(md)
+    assert "📌 <b>Reja</b>" in out
+    assert "    ◦ ichki <i>band</i>" in out
+    assert "• <s>eski</s> <tg-spoiler>javob</tg-spoiler>" in out
+    assert "<blockquote>birinchi\nikkinchi</blockquote>" in out
+    assert "<code>a &lt; b</code>" in out and "<pre>x = 1 * 2 * 3</pre>" in out
+    assert "<b>Sarlavha</b>" in out and "A · B" in out and "---" not in out
+    assert "snake_case_name" in out
+    long_quote = markdown_to_tg("\n".join(f"> {i}" for i in range(6)))
+    assert long_quote.startswith("<blockquote expandable>")

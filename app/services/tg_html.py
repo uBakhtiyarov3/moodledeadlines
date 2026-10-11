@@ -85,15 +85,81 @@ def sanitize(editor_html: str) -> str:
     return p.result()
 
 
+_INLINE_RULES = [
+    (re.compile(r"\*\*([^\n*][^\n]*?)\*\*"), r"<b>\1</b>"),
+    (re.compile(r"__([^\n_][^\n]*?)__"), r"<u>\1</u>"),
+    (re.compile(r"~~([^\n~][^\n]*?)~~"), r"<s>\1</s>"),
+    (re.compile(r"\|\|([^\n|][^\n]*?)\|\|"), r"<tg-spoiler>\1</tg-spoiler>"),
+    (re.compile(r"(?<![\w*])\*(?![\s*])([^\n*]+?)(?<!\s)\*(?![\w*])"), r"<i>\1</i>"),
+    (re.compile(r"(?<![\w_])_(?![\s_])([^\n_]+?)(?<!\s)_(?![\w_])"), r"<i>\1</i>"),
+    (re.compile(r"\[([^\]\n]+)\]\((https?://[^)\s]+)\)"), r'<a href="\2">\1</a>'),
+]
+
+
+def _inline(line: str) -> str:
+    for rx, repl in _INLINE_RULES:
+        line = rx.sub(repl, line)
+    return line
+
+
 def markdown_to_tg(md: str) -> str:
-    """Minimal Markdown → Telegram HTML for AI answers (**bold**, *italic*, `code`, lists, links)."""
-    text = html.escape(md, quote=False)
-    text = re.sub(r"```(?:\w+)?\n?(.*?)```", lambda m: f"<pre>{m.group(1).strip()}</pre>", text, flags=re.S)
-    text = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", text)
-    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
-    text = re.sub(r"__(.+?)__", r"<u>\1</u>", text)
-    text = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"<i>\1</i>", text)
-    text = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r'<a href="\2">\1</a>', text)
-    text = re.sub(r"^#{1,6}\s*(.+)$", r"<b>\1</b>", text, flags=re.M)
-    text = re.sub(r"^\s*[-*]\s+", "• ", text, flags=re.M)
-    return text
+    """Markdown (as written by the AI) → Telegram HTML.
+
+    Supports **bold**, *italic*/_italic_, __underline__, ~~strike~~, ||spoiler||, `code`,
+    ```pre```, [links](https://…), "- " / nested bullets, "> " quotes (long ones expandable),
+    and degrades #-headings, tables and rules into readable text.
+    """
+    # 1. pull code out so nothing inside it gets formatted
+    stash: list[str] = []
+
+    def keep(html_snippet: str) -> str:
+        stash.append(html_snippet)
+        return f"\x00{len(stash) - 1}\x00"
+
+    text = re.sub(
+        r"```[\w+-]*\n?(.*?)```",
+        lambda m: keep(f"<pre>{html.escape(m.group(1).strip(), quote=False)}</pre>"),
+        md,
+        flags=re.S,
+    )
+    text = re.sub(r"`([^`\n]+)`", lambda m: keep(f"<code>{html.escape(m.group(1), quote=False)}</code>"), text)
+    text = html.escape(text, quote=False)
+
+    out: list[str] = []
+    quote: list[str] = []
+
+    def flush_quote():
+        if quote:
+            tag = "blockquote expandable" if len(quote) > 4 else "blockquote"
+            out.append(f"<{tag}>" + "\n".join(quote) + "</blockquote>")
+            quote.clear()
+
+    for raw in text.split("\n"):
+        line = raw.rstrip()
+        m = re.match(r"^\s*&gt;\s?(.*)$", line)
+        if m:
+            quote.append(_inline(m.group(1)))
+            continue
+        flush_quote()
+        if re.match(r"^\s*([-*_])\s*(\1\s*){2,}$", line):  # horizontal rule
+            continue
+        if re.match(r"^\s*\|?\s*:?-{2,}", line) and set(line.strip()) <= set("|-: "):  # table separator
+            continue
+        h = re.match(r"^#{1,6}\s+(.+)$", line)
+        if h:
+            line = "<b>" + _inline(h.group(1)).replace("<b>", "").replace("</b>", "") + "</b>"
+            out.append(line)
+            continue
+        if line.strip().startswith("|") and line.strip().endswith("|"):  # table row
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            line = " · ".join(c for c in cells if c)
+        b = re.match(r"^(\s*)[-*+•]\s+(.*)$", line)
+        if b:
+            nested = len(b.group(1).replace("\t", "    ")) >= 2
+            line = ("    ◦ " if nested else "• ") + b.group(2)
+        out.append(_inline(line))
+    flush_quote()
+
+    result = "\n".join(out)
+    result = re.sub(r"\n{3,}", "\n\n", result).strip()
+    return re.sub(r"\x00(\d+)\x00", lambda m: stash[int(m.group(1))], result)

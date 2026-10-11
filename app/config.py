@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     # Tried in order when the main model is overloaded (503) or rate limited (429)
     gemini_fallback_models: str = "gemini-flash-latest,gemini-flash-lite-latest"
     gemini_max_tokens: int = 8192
+    # Gemini 3 "thinking" depth: low = fast & cheap (good for chat); "" = model default
+    gemini_thinking_level: str = "low"
     # Telegram voice messages longer than this are rejected (seconds)
     ai_max_voice_sec: int = 300
 
