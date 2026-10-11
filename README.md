@@ -222,6 +222,8 @@ Bot `polling` rejimida ishlaydi — domen shart emas, HTTPS faqat Mini App uchun
 
 ### 6.1 Google Cloud'da ishga tushirish
 
+To'liq, qadam-baqadam yo'riqnoma: **[DEPLOY.md](DEPLOY.md)**.
+
 Ikki alohida loyiha: **`uwedpulse`** — faqat Gemini kaliti (billingsiz, bepul tarif);
 **`uwedpulse-host`** — server (billing ulangan, xarajatni Developer Program / GCP kreditlari yopadi).
 
@@ -234,8 +236,9 @@ Ikki alohida loyiha: **`uwedpulse`** — faqat Gemini kaliti (billingsiz, bepul 
 gcloud config set project uwedpulse-host
 gcloud services enable compute.googleapis.com
 
+gcloud compute addresses create uwed-ip --region=us-central1
 gcloud compute instances create uwed-bot \
-  --zone=us-central1-a --machine-type=e2-micro \
+  --zone=us-central1-a --machine-type=e2-micro --address=uwed-ip \
   --image-family=debian-12 --image-project=debian-cloud \
   --boot-disk-size=30GB --boot-disk-type=pd-standard \
   --tags=web
