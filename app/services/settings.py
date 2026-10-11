@@ -91,6 +91,7 @@ DEFAULT_SYSTEM_PROMPT = (
 
 DEFAULTS: dict = {
     "ai_enabled": True,
+    "tts_enabled": True,
     "ai_daily_limit": 30,
     "ai_system_prompt": DEFAULT_SYSTEM_PROMPT,
     "maintenance": False,

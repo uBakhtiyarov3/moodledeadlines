@@ -223,3 +223,14 @@ def test_markdown_to_tg_telegram_features():
     assert "snake_case_name" in out
     long_quote = markdown_to_tg("\n".join(f"> {i}" for i in range(6)))
     assert long_quote.startswith("<blockquote expandable>")
+
+
+def test_tts_speakable_text():
+    from app.services.tts import MAX_CHARS, speakable
+
+    md = "📌 **Reja**\n\n- *Kirish:* ta'rif\n> misol\n||javob||\n[uwed](https://uwed.uz) `x`\n```\ncode\n```"
+    out = speakable(md)
+    assert "📌" not in out and "*" not in out and "javob" not in out and "https" not in out
+    assert "Reja" in out and "Kirish: ta'rif" in out and "misol" in out and "uwed" in out
+    long = speakable("Gap. " * 600)
+    assert len(long) <= MAX_CHARS and long.endswith(".")

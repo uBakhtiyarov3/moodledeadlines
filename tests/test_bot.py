@@ -130,13 +130,25 @@ async def test_voice_and_photo_go_to_ai(tg, monkeypatch):
         got.append((q, [(m.kind, m.mime, m.data) for m in media or []]))
         return "javob"
 
+    spoken = []
+
+    async def fake_tts(text):
+        spoken.append(text)
+        return b"OggS-voice"
+
     monkeypatch.setattr(handlers, "download", fake_download)
     monkeypatch.setattr(ai, "ask", fake_ask)
+    monkeypatch.setattr(handlers.tts, "synthesize", fake_tts)
+    monkeypatch.setattr(handlers.tts, "enabled", lambda: True)
     await tg("/start", uid=903)
     out = await tg(voice=12, uid=903)
     assert texts(out) == ["javob"] and got[-1] == ("", [("audio", "audio/ogg", b"bytes-of-v")])
+    # voice question → text answer first, then a voice note
+    names = [type(c).__name__ for c in out]
+    assert names.index("SendMessage") < names.index("SendVoice") and spoken == ["javob"]
     out = await tg("shu insho qanday?", photo=True, uid=903)
     assert got[-1] == ("shu insho qanday?", [("image", "image/jpeg", b"bytes-of-f")])
+    assert "SendVoice" not in [type(c).__name__ for c in out] and len(spoken) == 1  # photo → no voice
     out = await tg(voice=3600, uid=903)
     assert "juda uzun" in texts(out)[0] and len(got) == 2
 

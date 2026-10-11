@@ -295,6 +295,7 @@
       st = await api("/api/admin/settings");
       $("#s-maint").checked = st.maintenance;
       $("#s-ai").checked = st.ai_enabled;
+      $("#s-tts").checked = st.tts_enabled;
       $("#s-limit").value = st.ai_daily_limit;
       $("#s-prompt").value = st.ai_system_prompt;
       $("#s-offsets").innerHTML = (st.allowed_offsets || ALLOWED).map((o) =>
@@ -307,7 +308,7 @@
       st = await api("/api/admin/settings", {
         method: "PUT",
         body: {
-          maintenance: $("#s-maint").checked, ai_enabled: $("#s-ai").checked,
+          maintenance: $("#s-maint").checked, ai_enabled: $("#s-ai").checked, tts_enabled: $("#s-tts").checked,
           ai_daily_limit: +$("#s-limit").value, ai_system_prompt: $("#s-prompt").value,
           default_offsets: $$("#s-offsets .pill.active").map((p) => +p.dataset.o),
         },

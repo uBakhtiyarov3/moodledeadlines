@@ -86,14 +86,14 @@ T: dict[str, dict[str, str]] = {
     },
     "ai_intro": {
         "uz": "🤖 <b>UWED Pulse AI</b>\n\nShu yerga yozing yoki 🎤 ovozli xabar yuboring — UWED, o'qish, Moodle yoki "
-        "deadlinelaringiz haqida so'rang. Vazifa sharti yoki o'z ishingizni 🖼 rasm / 📄 PDF qilib yuborsangiz, "
+        "deadlinelaringiz haqida so'rang (ovozli savolga ovoz bilan ham javob beraman). Vazifa sharti yoki o'z ishingizni 🖼 rasm / 📄 PDF qilib yuborsangiz, "
         "tushuntiraman va qayerni yaxshilash kerakligini aytaman.\n\n"
         "Masalan: <i>«Bu hafta qaysi deadlinelarim bor?»</i>\n\n🆕 Yangi mavzu: /new",
         "ru": "🤖 <b>UWED Pulse AI</b>\n\nНапишите или отправьте 🎤 голосовое — спросите об UWED, учёбе, Moodle "
-        "или дедлайнах. Пришлите задание или свою работу 🖼 фото / 📄 PDF — объясню и подскажу, что улучшить.\n\n"
+        "или дедлайнах (на голосовое отвечу и голосом). Пришлите задание или свою работу 🖼 фото / 📄 PDF — объясню и подскажу, что улучшить.\n\n"
         "Например: <i>«Какие у меня дедлайны на этой неделе?»</i>\n\n🆕 Новая тема: /new",
         "en": "🤖 <b>UWED Pulse AI</b>\n\nType or send a 🎤 voice message — ask about UWED, studies, Moodle "
-        "or your deadlines. Send an assignment or your own work as a 🖼 photo / 📄 PDF and I'll explain "
+        "or your deadlines (voice questions get a voice reply too). Send an assignment or your own work as a 🖼 photo / 📄 PDF and I'll explain "
         "it and show what to improve.\n\n"
         "For example: <i>“What deadlines do I have this week?”</i>\n\n🆕 New topic: /new",
     },

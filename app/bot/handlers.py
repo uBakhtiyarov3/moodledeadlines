@@ -7,7 +7,7 @@ import httpx
 from aiogram import BaseMiddleware, F, Router
 from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandStart
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, TelegramObject
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, TelegramObject
 from sqlalchemy import delete, select
 
 from app.bot.keyboards import admin_kb, lang_kb, main_kb, open_app_kb
@@ -16,7 +16,7 @@ from app.db import Session
 from app.i18n import T, humanize_left, t
 from app.models import ChatMessage, Deadline, User
 from app.moodle.ical import IcalUrlError
-from app.services import ai, linking, users
+from app.services import ai, linking, tts, users
 from app.services import settings as rt
 from app.services.tg_html import markdown_to_tg
 
@@ -202,7 +202,7 @@ AI_ERRORS = {"disabled": "ai_disabled", "limit": "ai_limit", "busy": "ai_busy", 
 MAX_FILE = 15 * 1024 * 1024
 
 
-async def _answer_ai(message: Message, user: User, text: str, media: list | None = None):
+async def _answer_ai(message: Message, user: User, text: str, media: list | None = None, voice: bool = False):
     await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
     try:
         answer = await ai.ask(user, text, media)
@@ -214,6 +214,12 @@ async def _answer_ai(message: Message, user: User, text: str, media: list | None
             await message.answer(markdown_to_tg(part), disable_web_page_preview=True)
         except Exception:  # noqa: BLE001  (unexpected markup → send as plain text)
             await message.answer(part, parse_mode=None, disable_web_page_preview=True)
+    # Asked by voice → also answer by voice (text first, so nobody waits for the audio)
+    if voice and tts.enabled():
+        await message.bot.send_chat_action(message.chat.id, ChatAction.RECORD_VOICE)
+        ogg = await tts.synthesize(answer)
+        if ogg:
+            await message.answer_voice(BufferedInputFile(ogg, "pulse.ogg"))
 
 
 @router.message(F.text & ~F.text.startswith("/"))
@@ -265,7 +271,9 @@ async def ai_media(message: Message, user: User):
         message.chat.id, ChatAction.RECORD_VOICE if kind == "audio" else ChatAction.TYPING
     )
     data = await download(message.bot, file_id)
-    await _answer_ai(message, user, message.caption or "", [ai.Media(kind, mime, data)])
+    await _answer_ai(
+        message, user, message.caption or "", [ai.Media(kind, mime, data)], voice=bool(message.voice)
+    )
 
 
 @router.message()

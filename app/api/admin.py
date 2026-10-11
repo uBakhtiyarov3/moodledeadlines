@@ -274,6 +274,8 @@ async def put_settings(values: dict):
     clean = {}
     if "ai_enabled" in values:
         clean["ai_enabled"] = bool(values["ai_enabled"])
+    if "tts_enabled" in values:
+        clean["tts_enabled"] = bool(values["tts_enabled"])
     if "maintenance" in values:
         clean["maintenance"] = bool(values["maintenance"])
     if "ai_daily_limit" in values:

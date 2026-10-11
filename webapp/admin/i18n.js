@@ -89,6 +89,8 @@ UW.setDict({
   maintenance: { uz: "Texnik ishlar rejimi", ru: "Режим обслуживания", en: "Maintenance mode" },
   maintenance_d: { uz: "Faqat adminlar foydalana oladi", ru: "Доступ только админам", en: "Only admins can use the bot" },
   ai_enabled: { uz: "AI yoqilgan", ru: "ИИ включён", en: "AI enabled" },
+  tts_enabled: { uz: "Ovozli javob", ru: "Голосовые ответы", en: "Voice replies" },
+  tts_d: { uz: "Ovozli savolga ovoz bilan ham javob beradi", ru: "На голосовой вопрос отвечает и голосом", en: "Answers voice questions with voice too" },
   ai_limit: { uz: "Kunlik limit (har bir talaba)", ru: "Дневной лимит (на студента)", en: "Daily limit (per student)" },
   sys_prompt: { uz: "Qo'shimcha ko'rsatmalar AI uchun (asosiy qoidalar o'zgarmaydi)", ru: "Доп. инструкции для ИИ (базовые правила неизменны)", en: "Extra AI instructions (core rules stay fixed)" },
   def_offsets: { uz: "Yangi talabalar uchun default eslatmalar", ru: "Напоминания по умолчанию для новых", en: "Default reminders for new students" },

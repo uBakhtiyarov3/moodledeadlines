@@ -103,6 +103,10 @@ kredit qo'shing (masalan, "Redeem credits"), yoki billing ulanmagan yangi loyiha
   va deadline nomlari). Talabalarga shaxsiy ma'lumot (pasport, parol) yubormaslikni eslating.
 - Ko'proq kerak bo'lsa: AI Studio'da billing yoqiladi (Flash modellari juda arzon) — kod o'zgarmaydi.
 
+**Ovozli javob:** talaba 🎤 ovozli savol yuborsa, bot avval matn, keyin Gemini TTS (`gemini-3.8-flash-tts`,
+ovoz `Kore`) orqali o'qilgan ovozli xabar yuboradi. Admin panel → Sozlamalar → **Ovozli javob** bilan o'chiriladi.
+Serverda `ffmpeg` kerak (Docker image'da bor).
+
 **Nima qabul qilinadi:** matn; 🎤 ovozli xabar va audio (5 daqiqagacha, `AI_MAX_VOICE_SEC`);
 🖼 rasm (JPG/PNG/WebP); 📄 PDF (15 MB gacha). Word (`.docx`) fayllar hozircha qabul qilinmaydi —
 talabaga PDF qilib yuborishni aytadi. Mini App'da 📎 orqali rasm/PDF; ovoz — bot chatida.
