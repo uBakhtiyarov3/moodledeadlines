@@ -156,7 +156,8 @@ async def test_admin_access_and_features(client, monkeypatch):
     assert r.status_code == 200, r.text
     assert r.json()["html"] == "<b>9:00–18:00</b>"
     assert r.json()["sources"][0]["title"] == "Kutubxona"
-    assert "Kutubxona 9:00" in calls["system"][1]["text"]
+    assert "Kutubxona 9:00" in calls["system"][-1]["text"]
+    assert "UWED Pulse" in calls["system"][0]["text"]
     assert calls["model"] == "us.anthropic.claude-opus-4-5-20251101-v1:0"
 
     # student chat + history + limit

@@ -90,7 +90,7 @@ UW.setDict({
   maintenance_d: { uz: "Faqat adminlar foydalana oladi", ru: "Доступ только админам", en: "Only admins can use the bot" },
   ai_enabled: { uz: "AI yoqilgan", ru: "ИИ включён", en: "AI enabled" },
   ai_limit: { uz: "Kunlik limit (har bir talaba)", ru: "Дневной лимит (на студента)", en: "Daily limit (per student)" },
-  sys_prompt: { uz: "System prompt (AI xarakteri)", ru: "System prompt (характер ИИ)", en: "System prompt (AI persona)" },
+  sys_prompt: { uz: "Qo'shimcha ko'rsatmalar AI uchun (asosiy qoidalar o'zgarmaydi)", ru: "Доп. инструкции для ИИ (базовые правила неизменны)", en: "Extra AI instructions (core rules stay fixed)" },
   def_offsets: { uz: "Yangi talabalar uchun default eslatmalar", ru: "Напоминания по умолчанию для новых", en: "Default reminders for new students" },
   save: { uz: "Saqlash", ru: "Сохранить", en: "Save" },
   saved: { uz: "Saqlandi", ru: "Сохранено", en: "Saved" },

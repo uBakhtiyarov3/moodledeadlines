@@ -1,4 +1,4 @@
-# UWED Student Bot — Design (v0.1)
+# UWED Pulse (@uwedpulsebot) — Design (v0.1)
 
 ## Maqsad
 UWED talabalari uchun Telegram bot + Mini App:

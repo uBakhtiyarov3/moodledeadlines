@@ -7,20 +7,22 @@ import httpx
 from aiogram import BaseMiddleware, F, Router
 from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandStart
-from aiogram.types import CallbackQuery, Message, TelegramObject
-from sqlalchemy import select
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, TelegramObject
+from sqlalchemy import delete, select
 
 from app.bot.keyboards import admin_kb, lang_kb, main_kb, open_app_kb
 from app.config import get_settings
 from app.db import Session
 from app.i18n import T, humanize_left, t
-from app.models import Deadline, User
+from app.models import ChatMessage, Deadline, User
 from app.moodle.ical import IcalUrlError
 from app.services import ai, linking, users
 from app.services import settings as rt
 from app.services.tg_html import markdown_to_tg
 
 router = Router()
+# The bot only talks in private chats (it may be added to groups for broadcasts later)
+router.message.filter(F.chat.type == "private")
 EXPORT_RE = re.compile(r"(?:https?|webcal)://\S*calendar/export_execute\.php\S*", re.I)
 
 
@@ -163,7 +165,29 @@ async def link_from_chat(message: Message, user: User):
 @router.message(F.text.in_(_texts("btn_ai")))
 @router.message(Command("ai"))
 async def ai_intro(message: Message, user: User):
-    await message.answer(t("ai_intro", user.lang))
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=t("btn_new_chat", user.lang), callback_data="ai:new")]]
+    )
+    await message.answer(t("ai_intro", user.lang), reply_markup=kb)
+
+
+async def _clear_chat(user_id: int) -> None:
+    async with Session() as s:
+        await s.execute(delete(ChatMessage).where(ChatMessage.user_id == user_id))
+        await s.commit()
+
+
+@router.message(Command("new"))
+async def ai_new(message: Message, user: User):
+    await _clear_chat(user.id)
+    await message.answer(t("ai_new", user.lang))
+
+
+@router.callback_query(F.data == "ai:new")
+async def ai_new_cb(cb: CallbackQuery, user: User):
+    await _clear_chat(user.id)
+    await cb.answer()
+    await cb.message.answer(t("ai_new", user.lang))
 
 
 @router.message(F.text & ~F.text.startswith("/"))
@@ -175,9 +199,33 @@ async def ai_chat(message: Message, user: User):
         key = {"disabled": "ai_disabled", "limit": "ai_limit"}.get(e.code, "ai_error")
         await message.answer(t(key, user.lang))
         return
-    formatted = markdown_to_tg(answer)
-    for i in range(0, len(formatted), 4000):
+    for part in split_message(answer):
         try:
-            await message.answer(formatted[i : i + 4000])
-        except Exception:  # noqa: BLE001  (broken markup after split → send plain)
-            await message.answer(answer[i : i + 4000], parse_mode=None)
+            await message.answer(markdown_to_tg(part), disable_web_page_preview=True)
+        except Exception:  # noqa: BLE001  (unexpected markup → send as plain text)
+            await message.answer(part, parse_mode=None, disable_web_page_preview=True)
+
+
+@router.message(~F.text)
+async def non_text(message: Message, user: User):
+    await message.answer(t("text_only", user.lang))
+
+
+def split_message(text: str, limit: int = 3500) -> list[str]:
+    """Split on paragraph/line boundaries so Markdown markers aren't cut in half."""
+    parts, cur = [], ""
+    for line in text.split("\n"):
+        while len(line) > limit:
+            if cur:
+                parts.append(cur)
+                cur = ""
+            parts.append(line[:limit])
+            line = line[limit:]
+        if len(cur) + len(line) + 1 > limit:
+            parts.append(cur)
+            cur = line
+        else:
+            cur = f"{cur}\n{line}" if cur else line
+    if cur:
+        parts.append(cur)
+    return parts or [text]

@@ -89,7 +89,12 @@ async def ask(user: User, question: str) -> str:
         now_local = datetime.now(ZoneInfo(get_settings().timezone))
         # Stable instructions first (cacheable), per-request context after.
         system = [
-            {"type": "text", "text": rt.get("ai_system_prompt"), "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": rt.CORE_PROMPT},
+            {
+                "type": "text",
+                "text": f"<admin_notes>\n{rt.get('ai_system_prompt')}\n</admin_notes>",
+                "cache_control": {"type": "ephemeral"},
+            },
             {
                 "type": "text",
                 "text": (

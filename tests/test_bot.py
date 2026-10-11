@@ -28,10 +28,14 @@ async def tg(client, monkeypatch):  # noqa: F811
     dp.include_router(router)
     n = iter(range(1, 10_000))
 
-    async def send(text=None, callback=None, uid=900):
+    async def send(text=None, callback=None, uid=900, photo=False):
         user = {"id": uid, "is_bot": False, "first_name": "Aziz", "language_code": "uz"}
         chat = {"id": uid, "type": "private"}
-        msg = {"message_id": next(n), "date": int(datetime.now(timezone.utc).timestamp()), "chat": chat, "from": user, "text": text or "x"}
+        msg = {"message_id": next(n), "date": int(datetime.now(timezone.utc).timestamp()), "chat": chat, "from": user}
+        if photo:
+            msg["photo"] = [{"file_id": "f", "file_unique_id": "u", "width": 1, "height": 1}]
+        else:
+            msg["text"] = text or "x"
         if callback:
             upd = {"update_id": next(n), "callback_query": {"id": "1", "from": user, "chat_instance": "c", "data": callback, "message": msg}}
         else:
@@ -85,3 +89,32 @@ async def test_banned_user_blocked(tg):
         await s.commit()
     out = await tg("hello", uid=901)
     assert "blocked" in texts(out)[0] or "bloklangan" in texts(out)[0]
+
+
+async def test_ai_new_and_non_text(tg):
+    from sqlalchemy import func, select
+
+    from app.db import Session
+    from app.models import ChatMessage
+
+    await tg("/start", uid=902)
+    async with Session() as s:
+        s.add(ChatMessage(user_id=902, role="user", content="old"))
+        await s.commit()
+    out = await tg("/ai", uid=902)
+    assert "UWED Pulse AI" in texts(out)[0]
+    out = await tg("/new", uid=902)
+    assert "Yangi suhbat" in texts(out)[0]
+    async with Session() as s:
+        assert (await s.execute(select(func.count(ChatMessage.id)).where(ChatMessage.user_id == 902))).scalar_one() == 0
+    out = await tg(photo=True, uid=902)
+    assert "matnli" in texts(out)[0]
+
+
+def test_split_message():
+    from app.bot.handlers import split_message
+
+    text = "\n".join(f"line {i} " + "x" * 90 for i in range(100))
+    parts = split_message(text)
+    assert all(len(p) <= 3500 for p in parts) and "\n".join(parts) == text
+    assert split_message("short") == ["short"]

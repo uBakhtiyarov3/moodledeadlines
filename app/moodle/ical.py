@@ -61,7 +61,7 @@ async def fetch_ical(url: str, client: httpx.AsyncClient | None = None) -> str:
     own = client is None
     client = client or httpx.AsyncClient(timeout=20, follow_redirects=False)
     try:
-        r = await client.get(url, headers={"User-Agent": "UWED-StudentBot/1.0"})
+        r = await client.get(url, headers={"User-Agent": "UWED-Pulse/1.0"})
         r.raise_for_status()
         text = r.text
         if "BEGIN:VCALENDAR" not in text:

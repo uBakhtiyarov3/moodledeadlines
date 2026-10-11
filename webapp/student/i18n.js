@@ -73,7 +73,7 @@ UW.setDict({
   ai_title: { uz: "AI yordamchi", ru: "ИИ-помощник", en: "AI assistant" },
   ai_left: { uz: "Bugun {n} ta savol qoldi", ru: "Сегодня осталось вопросов: {n}", en: "{n} questions left today" },
   ai_ph: { uz: "Savolingizni yozing…", ru: "Задайте вопрос…", en: "Ask a question…" },
-  ai_hello_t: { uz: "Men UWED AI yordamchisiman", ru: "Я ИИ-помощник UWED", en: "I'm the UWED AI assistant" },
+  ai_hello_t: { uz: "Men UWED Pulse AI yordamchisiman", ru: "Я ИИ-помощник UWED Pulse", en: "I'm the UWED Pulse AI assistant" },
   ai_hello_d: { uz: "Universitet, o'qish va deadlinelaringiz haqida so'rang.", ru: "Спрашивайте об университете, учёбе и дедлайнах.", en: "Ask about the university, studies and your deadlines." },
   q1: { uz: "Bu hafta qaysi deadlinelarim bor?", ru: "Какие у меня дедлайны на этой неделе?", en: "What deadlines do I have this week?" },
   q2: { uz: "Kontrakt to'lovi qachon?", ru: "Когда оплата контракта?", en: "When is the tuition payment due?" },

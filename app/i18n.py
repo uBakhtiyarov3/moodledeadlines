@@ -9,15 +9,15 @@ T: dict[str, dict[str, str]] = {
         "en": "🌐 Choose your language",
     },
     "welcome": {
-        "uz": "👋 Salom, <b>{name}</b>!\n\nMen <b>UWED Student</b> botiman:\n"
+        "uz": "👋 Salom, <b>{name}</b>!\n\nMen <b>UWED Pulse</b> botiman:\n"
         "⏰ Moodle deadlinelaringizni kuzataman va o'z vaqtida eslataman\n"
         "🤖 Universitet haqidagi savollaringizga AI yordamida javob beraman\n\n"
         "Boshlash uchun pastdagi <b>Ilovani ochish</b> tugmasini bosing.",
-        "ru": "👋 Привет, <b>{name}</b>!\n\nЯ бот <b>UWED Student</b>:\n"
+        "ru": "👋 Привет, <b>{name}</b>!\n\nЯ бот <b>UWED Pulse</b>:\n"
         "⏰ слежу за дедлайнами в Moodle и вовремя напоминаю\n"
         "🤖 отвечаю на вопросы об университете с помощью ИИ\n\n"
         "Нажмите <b>Открыть приложение</b>, чтобы начать.",
-        "en": "👋 Hi, <b>{name}</b>!\n\nI'm the <b>UWED Student</b> bot:\n"
+        "en": "👋 Hi, <b>{name}</b>!\n\nI'm <b>UWED Pulse</b>:\n"
         "⏰ I track your Moodle deadlines and remind you on time\n"
         "🤖 I answer questions about the university with AI\n\n"
         "Tap <b>Open app</b> below to get started.",
@@ -85,9 +85,26 @@ T: dict[str, dict[str, str]] = {
         "en": "✅ Great! No more reminders for this task.",
     },
     "ai_intro": {
-        "uz": "🤖 Savolingizni yozing — UWED haqida, o'qish, deadlinelar… Men yordam beraman.",
-        "ru": "🤖 Задайте вопрос — об UWED, учёбе, дедлайнах… Я помогу.",
-        "en": "🤖 Ask me anything — about UWED, studies, deadlines… I'm here to help.",
+        "uz": "🤖 <b>UWED Pulse AI</b>\n\nShu yerga oddiy xabar qilib yozing — UWED, o'qish, Moodle yoki "
+        "deadlinelaringiz haqida so'rang. Men suhbatni eslab qolaman.\n\n"
+        "Masalan: <i>«Bu hafta qaysi deadlinelarim bor?»</i>\n\n🆕 Yangi mavzu: /new",
+        "ru": "🤖 <b>UWED Pulse AI</b>\n\nПросто напишите сообщение — спросите об UWED, учёбе, Moodle "
+        "или своих дедлайнах. Я помню контекст разговора.\n\n"
+        "Например: <i>«Какие у меня дедлайны на этой неделе?»</i>\n\n🆕 Новая тема: /new",
+        "en": "🤖 <b>UWED Pulse AI</b>\n\nJust type a message — ask about UWED, studies, Moodle "
+        "or your deadlines. I remember the conversation.\n\n"
+        "For example: <i>“What deadlines do I have this week?”</i>\n\n🆕 New topic: /new",
+    },
+    "ai_new": {
+        "uz": "🆕 Yangi suhbat boshlandi. Savolingizni yozing!",
+        "ru": "🆕 Начат новый разговор. Задайте вопрос!",
+        "en": "🆕 New conversation started. Ask away!",
+    },
+    "btn_new_chat": {"uz": "🆕 Yangi suhbat", "ru": "🆕 Новый разговор", "en": "🆕 New chat"},
+    "text_only": {
+        "uz": "✍️ Hozircha faqat matnli xabarlarni tushunaman. Savolingizni yozib yuboring.",
+        "ru": "✍️ Пока я понимаю только текст. Напишите вопрос сообщением.",
+        "en": "✍️ For now I only understand text. Please type your question.",
     },
     "ai_disabled": {
         "uz": "🤖 AI yordamchi vaqtincha o'chirilgan.",

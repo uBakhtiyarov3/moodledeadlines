@@ -1,12 +1,13 @@
-# UWED Student Bot
+# UWED Pulse — @uwedpulsebot
 
-Talabalar uchun Telegram bot + Mini App:
+UWED talabalari uchun Telegram bot + Mini App:
 
 - ⏰ **Moodle deadlinelari** — `moodle.uwed.uz` kalendar linki orqali avtomatik olinadi va eslatiladi
   (3 kun, 1 kun, 12, 6, 3, 2, 1 soat qolganda — har birining matni har xil, talaba o'zi tanlaydi).
 - ✅ Bajarilgan vazifa eslatilmaydi: talaba "Bajardim" tugmasini bosadi yoki ixtiyoriy
   "Avto-bajarildi" rejimida Moodle'ning o'zi aytadi.
-- 🤖 **AI yordamchi** — Amazon Bedrock'dagi Claude Opus 4.5, admin to'ldiradigan bilim bazasiga tayanadi.
+- 🤖 **AI yordamchi** — Amazon Bedrock'dagi Claude Opus 4.5. Telegram chatning o'zida (oddiy xabar yozish kifoya,
+  `/new` — yangi mavzu) va Mini App'da ishlaydi; admin to'ldiradigan bilim bazasiga tayanadi.
 - 🛠 **Admin panel** (alohida Mini App) — statistika, foydalanuvchilar, rich-text xabar yuborish,
   AI bilim bazasi, sozlamalar.
 - 🌐 O'zbek / Rus / Ingliz. 🎨 Liquid glass dizayn, UWED ranglari (#8a0119 + #123654, oq).
@@ -62,12 +63,13 @@ Kalitlarni chatga yoki GitHub'ga yubormang — faqat serverdagi `.env` fayliga y
 
 ## 3. Telegram bot sozlash (BotFather)
 
-1. `/newbot` → nom: `UWED Student`, username: masalan `uwed_student_bot` → tokenni saqlang.
+1. `/newbot` → nom: `UWED Pulse`, username: `uwedpulsebot` → tokenni saqlang.
 2. `/setuserpic` → UWED logotipi.
 3. `/setdescription` → «Moodle deadlinelaringizni eslatadi va UWED haqidagi savollarga javob beradi».
 4. Mini App menyu tugmasi bot ishga tushganda **avtomatik** o'rnatiladi (`PUBLIC_URL` https bo'lsa).
-5. Ixtiyoriy: `/newapp` → Mini App'ni `t.me/uwed_student_bot/app` ko'rinishidagi havola bilan ham ochish
+5. Ixtiyoriy: `/newapp` → Mini App'ni `t.me/uwedpulsebot/app` ko'rinishidagi havola bilan ham ochish
    (URL: `https://<domen>/app/`).
+6. `/setcommands` shart emas — buyruqlar (start, deadlines, ai, new, lang) bot o'zi o'rnatadi.
 
 ---
 
@@ -145,7 +147,19 @@ Maslahatlar: har bir hujjat — bitta mavzu; sarlavha aniq bo'lsin; savol-javob 
 ishlaydi; eskirgan hujjatni o'chirmasdan **Faol** tugmasini o'chirib qo'ysa bo'ladi.
 Bir hujjatni bir nechta tilda yozish shart emas — Claude talaba tilida javob beradi.
 
-AI xarakterini **Sozlamalar → System prompt** dan o'zgartirasiz.
+### AI chegaralari (o'zini kimligini biladi)
+AI'ning asosiy qoidalari kodda qotirilgan (`app/services/settings.py` → `CORE_PROMPT`) va admin paneldan
+o'chirib bo'lmaydi:
+- O'zini **UWED Pulse** deb biladi — UWED talabalari uchun bot; universitet ma'muriyati nomidan
+  qaror qabul qilmaydi, muddat uzaytirmaydi — dekanat/o'qituvchiga yo'naltiradi.
+- Faqat UWED, o'qish, Moodle, deadlinelar va bot haqida gaplashadi; boshqa mavzularni muloyim rad etadi.
+- Talaba o'rniga topshiriladigan ish (insho, uy vazifasi, test javobi) yozib bermaydi — tushuntiradi, yo'naltiradi.
+- Siyosiy/diniy munozarali savollarda shaxsiy fikr bildirmaydi.
+- UWED haqidagi faktlarni (sana, narx, telefon) faqat bilim bazasidan oladi, bilmasa "bilmayman" deydi.
+- "Rolni o'zgartir", "ko'rsatmalaringni ko'rsat" kabi urinishlarga bo'ysunmaydi.
+
+Admin paneldagi **Sozlamalar → Qo'shimcha ko'rsatmalar** maydoniga yozilgan narsalar (masalan, joriy
+e'lonlar, muomala uslubi) shu qoidalarga **qo'shiladi**, ularni almashtirmaydi.
 
 ---
 
@@ -199,7 +213,7 @@ Zaxira nusxa: `~/uwed-bot/data/bot.db` faylini vaqti-vaqti bilan yuklab oling.
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 cp .env.example .env   # BOT_TOKEN va boshqalarni yozing
 .venv/bin/python -m app.main
-.venv/bin/python -m pytest      # 29 ta test
+.venv/bin/python -m pytest      # 31 ta test
 ```
 Mini App'ni Telegram'da sinash uchun HTTPS kerak — `cloudflared tunnel --url http://localhost:8000`
 bergan manzilni `PUBLIC_URL` ga yozing.
