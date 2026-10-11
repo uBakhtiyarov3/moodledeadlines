@@ -234,3 +234,10 @@ def test_tts_speakable_text():
     assert "Reja" in out and "Kirish: ta'rif" in out and "misol" in out and "uwed" in out
     long = speakable("Gap. " * 600)
     assert len(long) <= MAX_CHARS and long.endswith(".")
+
+
+def test_core_prompt_names_no_vendor():
+    from app.services.settings import CORE_PROMPT
+
+    for word in ("Bedrock", "Anthropic", "Claude", "Gemini", "Google", "Amazon"):
+        assert word not in CORE_PROMPT
