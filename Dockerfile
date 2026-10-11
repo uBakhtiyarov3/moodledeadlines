@@ -7,8 +7,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY webapp ./webapp
-RUN useradd -m bot && mkdir -p data && chown bot data
-USER bot
+RUN useradd -m -u 1000 bot && mkdir -p data && chown bot data
 EXPOSE 8000
 HEALTHCHECK --interval=60s --timeout=5s CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/healthz')"
-CMD ["python", "-m", "app.main"]
+# The ./data volume is created by Docker as root on the host: fix its owner on every start,
+# then drop privileges and run the app as the unprivileged "bot" user.
+CMD ["sh", "-c", "chown -R bot:bot /srv/data && exec setpriv --reuid=bot --regid=bot --init-groups python -m app.main"]

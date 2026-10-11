@@ -44,6 +44,7 @@ if [ ! -f .env ]; then
   exit 0
 fi
 
+mkdir -p data
 sudo docker compose up -d --build
 sudo docker compose ps
 echo "==> Done. Logs: cd $DIR && sudo docker compose logs -f bot"

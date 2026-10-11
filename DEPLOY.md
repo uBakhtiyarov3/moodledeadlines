@@ -148,6 +148,7 @@ Server o'chib-yonsa ham bot o'zi ko'tariladi (`restart: unless-stopped`).
 
 | Belgi | Sabab / yechim |
 |---|---|
+| `unable to open database file` | `sudo chown -R 1000:1000 data && sudo docker compose restart bot` (yangi image'da o'zi tuzatiladi) |
 | `Conflict: terminated by other getUpdates` | Bot boshqa joyda ham ishlayapti — bitta joyda qoldiring |
 | Mini App ochilmaydi / HTTPS xato | Firewall (2-qadam) yaratilganini tekshiring; `sudo docker compose logs caddy` |
 | AI "band" deydi | AI Studio → Spend/Billing: kredit tugaganmi; `logs bot` da `gemini 402/429` |
