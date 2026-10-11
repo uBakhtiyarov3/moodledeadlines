@@ -89,6 +89,11 @@ Kalitlarni chatga yoki GitHub'ga yubormang — faqat serverdagi `.env` fayliga y
 4. Botni qayta ishga tushiring: `sudo docker compose up -d`. Telegram'da botga savol, ovozli xabar
    va rasm yuborib sinang; admin panel → AI → **AI'ni sinash** dan ham tekshirsa bo'ladi.
 
+**Agar `402 Your prepayment credits are depleted` chiqsa:** loyiha pullik "Prepay" tarifiga
+ulangan va balans $0. Yechim: AI Studio → **Projects** (<https://ai.studio/projects>) da o'sha loyihaga
+kredit qo'shing (masalan, "Redeem credits"), yoki billing ulanmagan yangi loyiha yaratib, o'shandan kalit oling
+(u bepul tarifda ishlaydi). Bot bu holatda talabaga "AI band" deydi, logda sababi yoziladi.
+
 **Limitlar va maxfiylik**
 - Bepul tarif limitlari (daqiqasiga/kuniga so'rovlar) modelga qarab o'zgaradi — aniq raqamlar
   AI Studio → loyihangiz → **Usage / Rate limits** sahifasida. Limit tugasa talaba "AI band, birozdan so'ng"

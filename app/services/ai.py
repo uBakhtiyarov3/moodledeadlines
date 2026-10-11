@@ -110,13 +110,19 @@ async def _gemini_generate(system: str, turns: list[dict]) -> str:
         "contents": contents,
         "generationConfig": {"maxOutputTokens": st.gemini_max_tokens, "temperature": 0.6},
     }
-    async with _http() as c:
-        r = await c.post(
-            GEMINI_URL.format(model=st.gemini_model),
-            headers={"x-goog-api-key": st.gemini_api_key},
-            json=body,
-        )
-    if r.status_code == 429:
+    try:
+        async with _http() as c:
+            r = await c.post(
+                GEMINI_URL.format(model=st.gemini_model),
+                headers={"x-goog-api-key": st.gemini_api_key},
+                json=body,
+            )
+    except httpx.TimeoutException:
+        log.warning("gemini timeout")
+        raise AIUnavailable("busy")
+    if r.status_code in (402, 429):
+        # 429 = rate limit; 402 = prepaid credits used up (billing-enabled project)
+        log.warning("gemini %s: %s", r.status_code, r.text[:300])
         raise AIUnavailable("busy")
     if r.status_code >= 400:
         log.error("gemini %s: %s", r.status_code, r.text[:500])
