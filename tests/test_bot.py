@@ -28,12 +28,18 @@ async def tg(client, monkeypatch):  # noqa: F811
     dp.include_router(router)
     n = iter(range(1, 10_000))
 
-    async def send(text=None, callback=None, uid=900, photo=False):
+    async def send(text=None, callback=None, uid=900, photo=False, voice=None, sticker=False):
         user = {"id": uid, "is_bot": False, "first_name": "Aziz", "language_code": "uz"}
         chat = {"id": uid, "type": "private"}
         msg = {"message_id": next(n), "date": int(datetime.now(timezone.utc).timestamp()), "chat": chat, "from": user}
         if photo:
             msg["photo"] = [{"file_id": "f", "file_unique_id": "u", "width": 1, "height": 1}]
+            if text:
+                msg["caption"] = text
+        elif voice is not None:
+            msg["voice"] = {"file_id": "v", "file_unique_id": "uv", "duration": voice, "mime_type": "audio/ogg"}
+        elif sticker:
+            msg["sticker"] = {"file_id": "s", "file_unique_id": "us", "type": "regular", "width": 1, "height": 1, "is_animated": False, "is_video": False}
         else:
             msg["text"] = text or "x"
         if callback:
@@ -71,7 +77,7 @@ async def test_start_lang_link_and_ai(tg, monkeypatch):
 
     from app.services import ai
 
-    async def fake_ask(user, q):
+    async def fake_ask(user, q, media=None):
         return "**Salom!**"
 
     monkeypatch.setattr(ai, "ask", fake_ask)
@@ -107,8 +113,32 @@ async def test_ai_new_and_non_text(tg):
     assert "Yangi suhbat" in texts(out)[0]
     async with Session() as s:
         assert (await s.execute(select(func.count(ChatMessage.id)).where(ChatMessage.user_id == 902))).scalar_one() == 0
-    out = await tg(photo=True, uid=902)
-    assert "matnli" in texts(out)[0]
+    out = await tg(sticker=True, uid=902)
+    assert "PDF yuboring" in texts(out)[0]
+
+
+async def test_voice_and_photo_go_to_ai(tg, monkeypatch):
+    from app.bot import handlers
+    from app.services import ai
+
+    got = []
+
+    async def fake_download(bot, file_id):
+        return b"bytes-of-" + file_id.encode()
+
+    async def fake_ask(user, q, media=None):
+        got.append((q, [(m.kind, m.mime, m.data) for m in media or []]))
+        return "javob"
+
+    monkeypatch.setattr(handlers, "download", fake_download)
+    monkeypatch.setattr(ai, "ask", fake_ask)
+    await tg("/start", uid=903)
+    out = await tg(voice=12, uid=903)
+    assert texts(out) == ["javob"] and got[-1] == ("", [("audio", "audio/ogg", b"bytes-of-v")])
+    out = await tg("shu insho qanday?", photo=True, uid=903)
+    assert got[-1] == ("shu insho qanday?", [("image", "image/jpeg", b"bytes-of-f")])
+    out = await tg(voice=3600, uid=903)
+    assert "juda uzun" in texts(out)[0] and len(got) == 2
 
 
 def test_split_message():

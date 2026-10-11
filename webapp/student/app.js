@@ -239,23 +239,50 @@
       }
     } catch (e) { chatLoaded = false; toast(errText(e), "error"); }
   }
+  let attached = null; // { mime, b64, name, url }
+  function setAttachment(a) {
+    attached = a;
+    $("#attach-chip").classList.toggle("hidden", !a);
+    if (a) $("#attach-name").textContent = (a.mime === "application/pdf" ? "📄 " : "🖼 ") + a.name;
+    $("#ai-file").value = "";
+  }
+  $("#ai-file").onchange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(f.type)) { toast(t("unsupported"), "error"); return; }
+    if (f.size > 10 * 1024 * 1024) { toast(t("file_big"), "error"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setAttachment({
+      mime: f.type, name: f.name, b64: String(reader.result).split(",")[1],
+      url: f.type.startsWith("image/") ? URL.createObjectURL(f) : null,
+    });
+    reader.readAsDataURL(f);
+    haptic("light");
+  };
+  $("#attach-x").onclick = () => setAttachment(null);
+
   async function send() {
     const input = $("#ai-input");
     const text = input.value.trim();
-    if (!text) return;
+    if (!text && !attached) return;
     const hello = $(".ai-hello"); if (hello) hello.remove();
     $("#suggest").innerHTML = "";
     input.value = ""; input.style.height = "";
-    bubble(esc(text), true);
+    const att = attached;
+    const attHtml = att ? (att.url ? `<img class="att" src="${att.url}" alt="">` : `📄 ${esc(att.name)}<br>`) : "";
+    bubble(attHtml + esc(text), true);
+    setAttachment(null);
     haptic("light");
     const typing = bubble('<span class="typing"><i></i><i></i><i></i></span>');
     try {
-      const r = await api("/api/ai", { body: { message: text } });
+      const body = { message: text };
+      if (att) { body.file_b64 = att.b64; body.file_mime = att.mime; }
+      const r = await api("/api/ai", { body });
       typing.remove(); bubble(r.html);
       me.ai_left = Math.max(0, me.ai_left - 1); renderAiLeft();
     } catch (e) {
       typing.remove();
-      bubble("⚠️ " + esc(t({ limit: "ai_limit", disabled: "ai_disabled" }[e.detail] || "ai_error")));
+      bubble("⚠️ " + esc(t({ limit: "ai_limit", disabled: "ai_disabled", busy: "ai_busy", unsupported: "unsupported" }[e.detail] || "ai_error")));
     }
   }
   $("#ai-send").innerHTML = I.send;

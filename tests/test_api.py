@@ -1,5 +1,6 @@
 """End-to-end API tests against an in-memory app (no Telegram, no Moodle, no Bedrock)."""
 
+import base64
 import hashlib
 import hmac
 import json
@@ -144,21 +145,55 @@ async def test_admin_access_and_features(client, monkeypatch):
     r = await client.post("/api/admin/kb", headers=ha, json={"title": "Kutubxona", "content": "Kutubxona 9:00 dan 18:00 gacha ishlaydi."})
     assert r.status_code == 200
 
+    sent = []
+
+    def gemini(request: httpx.Request):
+        sent.append(json.loads(request.content))
+        assert request.headers["x-goog-api-key"] == "test-key"
+        assert request.url.path.endswith("/models/gemini-flash-latest:generateContent")
+        return httpx.Response(200, json={"candidates": [{"content": {"parts": [
+            {"text": "thinking...", "thought": True}, {"text": "**9:00–18:00**"}]}}]})
+
+    monkeypatch.setattr(get_settings(), "gemini_api_key", "test-key")
+    monkeypatch.setattr(ai_mod, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(gemini)))
+    r = await client.post("/api/admin/ai/test", headers=ha, json={"message": "kutubxona qachon ishlaydi"})
+    assert r.status_code == 200, r.text
+    assert r.json()["html"] == "<b>9:00–18:00</b>"
+    assert r.json()["sources"][0]["title"] == "Kutubxona"
+    system = sent[0]["system_instruction"]["parts"][0]["text"]
+    assert "UWED Pulse" in system and "<tutor_mode>" in system and "Kutubxona 9:00" in system
+    assert sent[0]["contents"][-1] == {"role": "user", "parts": [{"text": "kutubxona qachon ishlaydi"}]}
+
+    # image + PDF via the Mini App go out as inline_data parts
+    png = base64.b64encode(b"\x89PNG fake").decode()
+    r = await client.post("/api/ai", headers=ha, json={"message": "tekshir", "file_b64": png, "file_mime": "image/png"})
+    assert r.status_code == 200, r.text
+    parts = sent[-1]["contents"][-1]["parts"]
+    assert parts[0]["inline_data"] == {"mime_type": "image/png", "data": png} and parts[1] == {"text": "tekshir"}
+    # history keeps a label, not the bytes; previous turns become user/model roles
+    assert [c["role"] for c in sent[-1]["contents"]] == ["user", "model", "user"]
+    bad = await client.post("/api/ai", headers=ha, json={"message": "x", "file_b64": png, "file_mime": "video/mp4"})
+    assert bad.status_code == 400
+
+    # rate limited by Google → friendly "busy"
+    monkeypatch.setattr(ai_mod, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(429))))
+    r = await client.post("/api/ai", headers=ha, json={"message": "salom"})
+    assert r.status_code == 429 and r.json()["detail"] == "busy"
+    monkeypatch.setattr(ai_mod, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(gemini)))
+
+    # Bedrock provider still works when selected
     calls = {}
 
     class FakeMessages:
         async def create(self, **kw):
             calls.update(kw)
-            return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text="**9:00–18:00**")])
+            return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text="ok")])
 
+    monkeypatch.setattr(get_settings(), "ai_provider", "bedrock")
     monkeypatch.setattr(ai_mod, "client", lambda: SimpleNamespace(messages=FakeMessages()))
-    r = await client.post("/api/admin/ai/test", headers=ha, json={"message": "kutubxona qachon ishlaydi"})
-    assert r.status_code == 200, r.text
-    assert r.json()["html"] == "<b>9:00–18:00</b>"
-    assert r.json()["sources"][0]["title"] == "Kutubxona"
-    assert "Kutubxona 9:00" in calls["system"][-1]["text"]
-    assert "UWED Pulse" in calls["system"][0]["text"]
-    assert calls["model"] == "us.anthropic.claude-opus-4-5-20251101-v1:0"
+    r = await client.post("/api/admin/ai/test", headers=ha, json={"message": "salom"})
+    assert r.json()["html"] == "ok" and calls["model"] == "us.anthropic.claude-opus-4-5-20251101-v1:0"
+    monkeypatch.setattr(get_settings(), "ai_provider", "gemini")
 
     # student chat + history + limit
     await client.put("/api/admin/settings", headers=ha, json={"ai_daily_limit": 1})

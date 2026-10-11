@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -163,15 +164,31 @@ async def sync_now(user: User = Depends(current_user)):
 
 
 class AskIn(BaseModel):
-    message: str = Field(min_length=1, max_length=4000)
+    message: str = Field(default="", max_length=4000)
+    file_b64: str | None = Field(default=None, max_length=14_000_000)  # ~10 MB
+    file_mime: str | None = None
+
+
+FILE_KINDS = {"image/jpeg": "image", "image/png": "image", "image/webp": "image", "application/pdf": "document"}
 
 
 @router.post("/ai")
 async def ask(body: AskIn, user: User = Depends(current_user)):
+    media = []
+    if body.file_b64:
+        kind = FILE_KINDS.get(body.file_mime or "")
+        if not kind:
+            raise HTTPException(400, "unsupported")
+        try:
+            media.append(ai.Media(kind, body.file_mime, base64.b64decode(body.file_b64, validate=True)))
+        except ValueError as e:
+            raise HTTPException(400, "bad_file") from e
+    if not body.message.strip() and not media:
+        raise HTTPException(400, "empty")
     try:
-        answer = await ai.ask(user, body.message)
+        answer = await ai.ask(user, body.message, media)
     except ai.AIUnavailable as e:
-        raise HTTPException(429 if e.code == "limit" else 503, e.code) from e
+        raise HTTPException(429 if e.code in ("limit", "busy") else 503, e.code) from e
     return {"answer": answer, "html": markdown_to_tg(answer)}
 
 

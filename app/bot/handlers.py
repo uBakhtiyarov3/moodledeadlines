@@ -190,14 +190,16 @@ async def ai_new_cb(cb: CallbackQuery, user: User):
     await cb.message.answer(t("ai_new", user.lang))
 
 
-@router.message(F.text & ~F.text.startswith("/"))
-async def ai_chat(message: Message, user: User):
+AI_ERRORS = {"disabled": "ai_disabled", "limit": "ai_limit", "busy": "ai_busy", "unsupported": "unsupported_file"}
+MAX_FILE = 15 * 1024 * 1024
+
+
+async def _answer_ai(message: Message, user: User, text: str, media: list | None = None):
     await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
     try:
-        answer = await ai.ask(user, message.text)
+        answer = await ai.ask(user, text, media)
     except ai.AIUnavailable as e:
-        key = {"disabled": "ai_disabled", "limit": "ai_limit"}.get(e.code, "ai_error")
-        await message.answer(t(key, user.lang))
+        await message.answer(t(AI_ERRORS.get(e.code, "ai_error"), user.lang))
         return
     for part in split_message(answer):
         try:
@@ -206,9 +208,61 @@ async def ai_chat(message: Message, user: User):
             await message.answer(part, parse_mode=None, disable_web_page_preview=True)
 
 
-@router.message(~F.text)
+@router.message(F.text & ~F.text.startswith("/"))
+async def ai_chat(message: Message, user: User):
+    await _answer_ai(message, user, message.text)
+
+
+async def download(bot, file_id: str) -> bytes:
+    buf = await bot.download(file_id)
+    return buf.read()
+
+
+def media_spec(message: Message) -> tuple[str, str, str, int, int] | None:
+    """(kind, mime, file_id, size, duration) for supported attachments."""
+    if message.voice:
+        v = message.voice
+        return "audio", v.mime_type or "audio/ogg", v.file_id, v.file_size or 0, v.duration
+    if message.audio:
+        a = message.audio
+        return "audio", a.mime_type or "audio/mpeg", a.file_id, a.file_size or 0, a.duration
+    if message.photo:
+        p = message.photo[-1]
+        return "image", "image/jpeg", p.file_id, p.file_size or 0, 0
+    if message.document:
+        d = message.document
+        mime = d.mime_type or ""
+        if mime in ("image/jpeg", "image/png", "image/webp"):
+            return "image", mime, d.file_id, d.file_size or 0, 0
+        if mime == "application/pdf":
+            return "document", mime, d.file_id, d.file_size or 0, 0
+    return None
+
+
+@router.message(F.voice | F.audio | F.photo | F.document)
+async def ai_media(message: Message, user: User):
+    spec = media_spec(message)
+    if spec is None:
+        await message.answer(t("unsupported_file", user.lang))
+        return
+    kind, mime, file_id, size, duration = spec
+    limit = get_settings().ai_max_voice_sec
+    if kind == "audio" and duration > limit:
+        await message.answer(t("voice_too_long", user.lang, n=limit // 60))
+        return
+    if size > MAX_FILE:
+        await message.answer(t("file_too_big", user.lang))
+        return
+    await message.bot.send_chat_action(
+        message.chat.id, ChatAction.RECORD_VOICE if kind == "audio" else ChatAction.TYPING
+    )
+    data = await download(message.bot, file_id)
+    await _answer_ai(message, user, message.caption or "", [ai.Media(kind, mime, data)])
+
+
+@router.message()
 async def non_text(message: Message, user: User):
-    await message.answer(t("text_only", user.lang))
+    await message.answer(t("unsupported_file", user.lang))
 
 
 def split_message(text: str, limit: int = 3500) -> list[str]:

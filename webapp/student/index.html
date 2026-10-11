@@ -109,7 +109,9 @@
       </header>
       <div id="chat" class="chat"></div>
       <div class="suggest" id="suggest"></div>
+      <div class="attach-chip hidden" id="attach-chip"><span id="attach-name"></span><button type="button" id="attach-x" aria-label="Remove">✕</button></div>
       <form class="composer glass strong" id="composer">
+        <label class="attach" aria-label="Attach">📎<input type="file" id="ai-file" accept="image/jpeg,image/png,image/webp,application/pdf" hidden /></label>
         <textarea id="ai-input" rows="1" data-i18n-ph="ai_ph" maxlength="4000"></textarea>
         <button class="send" id="ai-send" aria-label="Send"></button>
       </form>

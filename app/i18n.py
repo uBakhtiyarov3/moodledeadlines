@@ -85,14 +85,16 @@ T: dict[str, dict[str, str]] = {
         "en": "✅ Great! No more reminders for this task.",
     },
     "ai_intro": {
-        "uz": "🤖 <b>UWED Pulse AI</b>\n\nShu yerga oddiy xabar qilib yozing — UWED, o'qish, Moodle yoki "
-        "deadlinelaringiz haqida so'rang. Men suhbatni eslab qolaman.\n\n"
+        "uz": "🤖 <b>UWED Pulse AI</b>\n\nShu yerga yozing yoki 🎤 ovozli xabar yuboring — UWED, o'qish, Moodle yoki "
+        "deadlinelaringiz haqida so'rang. Vazifa sharti yoki o'z ishingizni 🖼 rasm / 📄 PDF qilib yuborsangiz, "
+        "tushuntiraman va qayerni yaxshilash kerakligini aytaman.\n\n"
         "Masalan: <i>«Bu hafta qaysi deadlinelarim bor?»</i>\n\n🆕 Yangi mavzu: /new",
-        "ru": "🤖 <b>UWED Pulse AI</b>\n\nПросто напишите сообщение — спросите об UWED, учёбе, Moodle "
-        "или своих дедлайнах. Я помню контекст разговора.\n\n"
+        "ru": "🤖 <b>UWED Pulse AI</b>\n\nНапишите или отправьте 🎤 голосовое — спросите об UWED, учёбе, Moodle "
+        "или дедлайнах. Пришлите задание или свою работу 🖼 фото / 📄 PDF — объясню и подскажу, что улучшить.\n\n"
         "Например: <i>«Какие у меня дедлайны на этой неделе?»</i>\n\n🆕 Новая тема: /new",
-        "en": "🤖 <b>UWED Pulse AI</b>\n\nJust type a message — ask about UWED, studies, Moodle "
-        "or your deadlines. I remember the conversation.\n\n"
+        "en": "🤖 <b>UWED Pulse AI</b>\n\nType or send a 🎤 voice message — ask about UWED, studies, Moodle "
+        "or your deadlines. Send an assignment or your own work as a 🖼 photo / 📄 PDF and I'll explain "
+        "it and show what to improve.\n\n"
         "For example: <i>“What deadlines do I have this week?”</i>\n\n🆕 New topic: /new",
     },
     "ai_new": {
@@ -101,6 +103,26 @@ T: dict[str, dict[str, str]] = {
         "en": "🆕 New conversation started. Ask away!",
     },
     "btn_new_chat": {"uz": "🆕 Yangi suhbat", "ru": "🆕 Новый разговор", "en": "🆕 New chat"},
+    "ai_busy": {
+        "uz": "⏳ AI hozir band. Bir daqiqadan so'ng qayta yozing.",
+        "ru": "⏳ ИИ сейчас занят. Попробуйте через минуту.",
+        "en": "⏳ The AI is busy right now. Try again in a minute.",
+    },
+    "voice_too_long": {
+        "uz": "🎤 Ovozli xabar juda uzun. {n} daqiqagacha bo'lsin.",
+        "ru": "🎤 Голосовое слишком длинное. До {n} минут, пожалуйста.",
+        "en": "🎤 That voice message is too long. Keep it under {n} minutes.",
+    },
+    "file_too_big": {
+        "uz": "📦 Fayl juda katta (15 MB gacha).",
+        "ru": "📦 Файл слишком большой (до 15 МБ).",
+        "en": "📦 The file is too large (max 15 MB).",
+    },
+    "unsupported_file": {
+        "uz": "📎 Bu turdagi faylni o'qiy olmayman. Matn, ovozli xabar, rasm yoki PDF yuboring.",
+        "ru": "📎 Такой файл я не читаю. Отправьте текст, голосовое, фото или PDF.",
+        "en": "📎 I can't read this file type. Send text, a voice message, a photo or a PDF.",
+    },
     "text_only": {
         "uz": "✍️ Hozircha faqat matnli xabarlarni tushunaman. Savolingizni yozib yuboring.",
         "ru": "✍️ Пока я понимаю только текст. Напишите вопрос сообщением.",

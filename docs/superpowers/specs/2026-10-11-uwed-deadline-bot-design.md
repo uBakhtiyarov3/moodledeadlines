@@ -32,8 +32,11 @@ qo'shimcha manba. Ikkala endpoint `moodle.uwed.uz` da tekshirildi (`login/token.
 - Scheduler: har 1 daqiqada eslatmalar; har `SYNC_INTERVAL_MIN` (30) daqiqada sinxronlash.
 
 ## AI chat
-- `AsyncAnthropicBedrock` (bedrock-runtime), model **Claude Opus 4.5** — cross-region profil
-  `us.anthropic.claude-opus-4-5-20251101-v1:0` (foydalanuvchi tanlovi).
+- Asosiy provayder: **Google Gemini** (`gemini-flash-latest`, bepul tarif) — REST `generateContent`,
+  matn + rasm + PDF + audio (Telegram voice) `inline_data` sifatida. Muqobil: `AI_PROVIDER=bedrock` →
+  Claude Opus 4.5 (`us.anthropic.claude-opus-4-5-20251101-v1:0`, matn + rasm).
+- AI kimligi va chegaralari (UWED Pulse, repetitor rejimi: tushuntiradi, yo'naltiradi, tekshiradi,
+  lekin bajarib bermaydi) kodda qotirilgan `CORE_PROMPT`; admin ko'rsatmalari unga qo'shiladi.
 - "O'rgatish" = RAG: admin bilim bazasiga matn qo'shadi (FAQ, nizomlar, jadval), bo'laklanadi,
   savolga eng mos bo'laklar (BM25 kalit so'z qidiruvi, uz/ru/en uchun ishlaydi) system promptga qo'shiladi.
   Talabaning yaqin deadlinelari ham kontekstga beriladi.

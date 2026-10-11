@@ -6,8 +6,9 @@ UWED talabalari uchun Telegram bot + Mini App:
   (3 kun, 1 kun, 12, 6, 3, 2, 1 soat qolganda — har birining matni har xil, talaba o'zi tanlaydi).
 - ✅ Bajarilgan vazifa eslatilmaydi: talaba "Bajardim" tugmasini bosadi yoki ixtiyoriy
   "Avto-bajarildi" rejimida Moodle'ning o'zi aytadi.
-- 🤖 **AI yordamchi** — Amazon Bedrock'dagi Claude Opus 4.5. Telegram chatning o'zida (oddiy xabar yozish kifoya,
-  `/new` — yangi mavzu) va Mini App'da ishlaydi; admin to'ldiradigan bilim bazasiga tayanadi.
+- 🤖 **AI yordamchi (repetitor)** — Google Gemini (bepul tarif): matn, 🎤 ovozli xabar, 🖼 rasm va 📄 PDF'ni
+  o'zbek/rus/ingliz tilida tushunadi. Telegram chatning o'zida (`/new` — yangi mavzu) va Mini App'da (📎 bilan)
+  ishlaydi; admin to'ldiradigan bilim bazasiga tayanadi. Kerak bo'lsa Claude (Amazon Bedrock) ga bir qator bilan o'tadi.
 - 🛠 **Admin panel** (alohida Mini App) — statistika, foydalanuvchilar, rich-text xabar yuborish,
   AI bilim bazasi, sozlamalar.
 - 🌐 O'zbek / Rus / Ingliz. 🎨 Liquid glass dizayn, UWED ranglari (#8a0119 + #123654, oq).
@@ -54,7 +55,7 @@ Ikkalasi `moodle.uwed.uz` da ishlashi tekshirildi.
 
 1. **Telegram bot tokeni** — @BotFather → `/newbot`.
 2. **Telegram ID'ingiz** (admin bo'lish uchun) — @userinfobot ga yozing.
-3. **AWS IAM kalitlari** (Bedrock uchun) — pastdagi 4-bo'lim. ⚠️ Root akkaunt kalitini ishlatmang.
+3. **Gemini API kaliti** — pastdagi 4-bo'lim (bepul). (AWS Bedrock — faqat Claude'ga o'tmoqchi bo'lsangiz, 4B-bo'lim.)
 4. **Server** — Google Cloud akkaunt (billing ulangan) yoki boshqa VPS.
 
 Kalitlarni chatga yoki GitHub'ga yubormang — faqat serverdagi `.env` fayliga yoziladi.
@@ -73,7 +74,38 @@ Kalitlarni chatga yoki GitHub'ga yubormang — faqat serverdagi `.env` fayliga y
 
 ---
 
-## 4. Amazon Bedrock: Claude Opus 4.5'ni ulash
+## 4. Google Gemini'ni ulash (asosiy, bepul)
+
+1. <https://aistudio.google.com> ga Google akkaunt bilan kiring (universitetga tegishli emas, alohida
+   "loyiha" akkaunti tavsiya etiladi).
+2. Chap menyuda **Get API key** → **Create API key** → yangi Google Cloud loyihasi yarating
+   (masalan `uwed-pulse`) → kalit chiqadi (`AIza...` bilan boshlanadi).
+3. Kalitni serverdagi `.env` ga yozing:
+   ```
+   AI_PROVIDER=gemini
+   GEMINI_API_KEY=AIza...
+   GEMINI_MODEL=gemini-flash-latest
+   ```
+4. Botni qayta ishga tushiring: `sudo docker compose up -d`. Telegram'da botga savol, ovozli xabar
+   va rasm yuborib sinang; admin panel → AI → **AI'ni sinash** dan ham tekshirsa bo'ladi.
+
+**Limitlar va maxfiylik**
+- Bepul tarif limitlari (daqiqasiga/kuniga so'rovlar) modelga qarab o'zgaradi — aniq raqamlar
+  AI Studio → loyihangiz → **Usage / Rate limits** sahifasida. Limit tugasa talaba "AI band, birozdan so'ng"
+  xabarini oladi; admin paneldagi *Kunlik limit* bilan har bir talabaga kvota bering.
+- Bepul tarifda Google yuborilgan ma'lumotlardan o'z mahsulotlarini yaxshilash uchun foydalanishi mumkin.
+  Bot AI'ga talabaning ismi yoki Telegram ma'lumotini yubormaydi (faqat savol, bilim bazasi parchalari
+  va deadline nomlari). Talabalarga shaxsiy ma'lumot (pasport, parol) yubormaslikni eslating.
+- Ko'proq kerak bo'lsa: AI Studio'da billing yoqiladi (Flash modellari juda arzon) — kod o'zgarmaydi.
+
+**Nima qabul qilinadi:** matn; 🎤 ovozli xabar va audio (5 daqiqagacha, `AI_MAX_VOICE_SEC`);
+🖼 rasm (JPG/PNG/WebP); 📄 PDF (15 MB gacha). Word (`.docx`) fayllar hozircha qabul qilinmaydi —
+talabaga PDF qilib yuborishni aytadi. Mini App'da 📎 orqali rasm/PDF; ovoz — bot chatida.
+
+## 4B. (Ixtiyoriy) Amazon Bedrock: Claude Opus 4.5'ni ulash
+
+`.env` da `AI_PROVIDER=bedrock` qilsangiz, Gemini o'rniga Claude ishlaydi (pullik; rasm va matn,
+ovozli xabarni qabul qilmaydi).
 
 Siz tanlagan model: **Claude Opus 4.5**, Model ID `anthropic.claude-opus-4-5-20251101-v1:0`,
 *Cross-region inference*. Shuning uchun kodda **inference profile** ishlatiladi:
@@ -216,7 +248,7 @@ Zaxira nusxa: `~/uwed-bot/data/bot.db` faylini vaqti-vaqti bilan yuklab oling.
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 cp .env.example .env   # BOT_TOKEN va boshqalarni yozing
 .venv/bin/python -m app.main
-.venv/bin/python -m pytest      # 31 ta test
+.venv/bin/python -m pytest      # 32 ta test
 ```
 Mini App'ni Telegram'da sinash uchun HTTPS kerak — `cloudflared tunnel --url http://localhost:8000`
 bergan manzilni `PUBLIC_URL` ga yozing.

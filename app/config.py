@@ -21,6 +21,15 @@ class Settings(BaseSettings):
     moodle_base: str = "https://moodle.uwed.uz"
     sync_interval_min: int = 30
 
+    # AI provider: "gemini" (default, free tier, text+image+audio) or "bedrock" (Claude)
+    ai_provider: str = "gemini"
+    gemini_api_key: str = ""
+    # "gemini-flash-latest" always points to Google's newest Flash model
+    gemini_model: str = "gemini-flash-latest"
+    gemini_max_tokens: int = 8192
+    # Telegram voice messages longer than this are rejected (seconds)
+    ai_max_voice_sec: int = 300
+
     aws_region: str = "us-east-1"
     # Claude Opus 4.5 via cross-region inference profile (bedrock-runtime endpoint).
     # Plain model id: anthropic.claude-opus-4-5-20251101-v1:0 ; the "us." prefix routes
