@@ -84,7 +84,7 @@ Kalitlarni chatga yoki GitHub'ga yubormang — faqat serverdagi `.env` fayliga y
    ```
    AI_PROVIDER=gemini
    GEMINI_API_KEY=AIza...
-   GEMINI_MODEL=gemini-flash-latest
+   GEMINI_MODEL=gemini-3.8-flash
    ```
 4. Botni qayta ishga tushiring: `sudo docker compose up -d`. Telegram'da botga savol, ovozli xabar
    va rasm yuborib sinang; admin panel → AI → **AI'ni sinash** dan ham tekshirsa bo'ladi.

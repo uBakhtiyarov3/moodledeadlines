@@ -87,7 +87,7 @@ MEDIA_HINT = (
 # ---------------------------------------------------------------- providers
 
 def _http() -> httpx.AsyncClient:
-    return httpx.AsyncClient(timeout=90)
+    return httpx.AsyncClient(timeout=httpx.Timeout(45, connect=10))
 
 
 async def _gemini_generate(system: str, turns: list[dict]) -> str:
@@ -110,23 +110,29 @@ async def _gemini_generate(system: str, turns: list[dict]) -> str:
         "contents": contents,
         "generationConfig": {"maxOutputTokens": st.gemini_max_tokens, "temperature": 0.6},
     }
-    try:
-        async with _http() as c:
-            r = await c.post(
-                GEMINI_URL.format(model=st.gemini_model),
-                headers={"x-goog-api-key": st.gemini_api_key},
-                json=body,
-            )
-    except httpx.TimeoutException:
-        log.warning("gemini timeout")
+    models = [st.gemini_model] + [m.strip() for m in st.gemini_fallback_models.split(",") if m.strip()]
+    r = None
+    async with _http() as c:
+        for model in dict.fromkeys(models):  # de-duplicated, order kept
+            try:
+                r = await c.post(
+                    GEMINI_URL.format(model=model),
+                    headers={"x-goog-api-key": st.gemini_api_key},
+                    json=body,
+                )
+            except httpx.TimeoutException:
+                log.warning("gemini %s timeout", model)
+                continue
+            if r.status_code in (429, 500, 503, 504):
+                # overloaded / rate limited → try the next model
+                log.warning("gemini %s %s, falling back", model, r.status_code)
+                continue
+            break
+    if r is None or r.status_code in (402, 429, 500, 503, 504):
+        # 402 = prepaid credits used up on a billing-enabled project
+        if r is not None:
+            log.warning("gemini %s: %s", r.status_code, r.text[:300])
         raise AIUnavailable("busy")
-    if r.status_code in (402, 429):
-        # 429 = rate limit; 402 = prepaid credits used up (billing-enabled project)
-        log.warning("gemini %s: %s", r.status_code, r.text[:300])
-        raise AIUnavailable("busy")
-    if r.status_code >= 400:
-        log.error("gemini %s: %s", r.status_code, r.text[:500])
-        raise AIUnavailable("error")
     data = r.json()
     if (data.get("promptFeedback") or {}).get("blockReason"):
         return ""

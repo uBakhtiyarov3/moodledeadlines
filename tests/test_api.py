@@ -146,11 +146,13 @@ async def test_admin_access_and_features(client, monkeypatch):
     assert r.status_code == 200
 
     sent = []
+    models_called = []
 
     def gemini(request: httpx.Request):
         sent.append(json.loads(request.content))
         assert request.headers["x-goog-api-key"] == "test-key"
-        assert request.url.path.endswith("/models/gemini-flash-latest:generateContent")
+        assert request.url.path.endswith(":generateContent")
+        models_called.append(request.url.path.rsplit("/", 1)[-1].split(":")[0])
         return httpx.Response(200, json={"candidates": [{"content": {"parts": [
             {"text": "thinking...", "thought": True}, {"text": "**9:00–18:00**"}]}}]})
 
@@ -160,6 +162,7 @@ async def test_admin_access_and_features(client, monkeypatch):
     assert r.status_code == 200, r.text
     assert r.json()["html"] == "<b>9:00–18:00</b>"
     assert r.json()["sources"][0]["title"] == "Kutubxona"
+    assert models_called == ["gemini-3.8-flash"]
     system = sent[0]["system_instruction"]["parts"][0]["text"]
     assert "UWED Pulse" in system and "<tutor_mode>" in system and "Kutubxona 9:00" in system
     assert sent[0]["contents"][-1] == {"role": "user", "parts": [{"text": "kutubxona qachon ishlaydi"}]}
@@ -179,6 +182,18 @@ async def test_admin_access_and_features(client, monkeypatch):
     monkeypatch.setattr(ai_mod, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(429))))
     r = await client.post("/api/ai", headers=ha, json={"message": "salom"})
     assert r.status_code == 429 and r.json()["detail"] == "busy"
+    # main model overloaded → falls back to the next model
+    tried = []
+
+    def overloaded_then_ok(request):
+        tried.append(request.url.path.rsplit("/", 1)[-1])
+        if len(tried) == 1:
+            return httpx.Response(503, json={"error": {"message": "high demand"}})
+        return gemini(request)
+
+    monkeypatch.setattr(ai_mod, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(overloaded_then_ok)))
+    r = await client.post("/api/ai", headers=ha, json={"message": "salom"})
+    assert r.status_code == 200 and tried == ["gemini-3.8-flash:generateContent", "gemini-flash-latest:generateContent"]
     monkeypatch.setattr(ai_mod, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(gemini)))
 
     # Bedrock provider still works when selected

@@ -24,8 +24,9 @@ class Settings(BaseSettings):
     # AI provider: "gemini" (default, free tier, text+image+audio) or "bedrock" (Claude)
     ai_provider: str = "gemini"
     gemini_api_key: str = ""
-    # "gemini-flash-latest" always points to Google's newest Flash model
-    gemini_model: str = "gemini-flash-latest"
+    gemini_model: str = "gemini-3.8-flash"
+    # Tried in order when the main model is overloaded (503) or rate limited (429)
+    gemini_fallback_models: str = "gemini-flash-latest,gemini-flash-lite-latest"
     gemini_max_tokens: int = 8192
     # Telegram voice messages longer than this are rejected (seconds)
     ai_max_voice_sec: int = 300
