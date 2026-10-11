@@ -42,21 +42,22 @@ def main_kb(lang: str) -> ReplyKeyboardMarkup:
                 KeyboardButton(text=t("btn_ai", lang)),
             ],
             [
-                KeyboardButton(text=t("btn_settings", lang), web_app=WebAppInfo(url=app_url() + "#settings"))
-                if app_enabled()
-                else KeyboardButton(text=t("btn_settings", lang)),
+                # Plain button on purpose: Mini Apps opened from a reply-keyboard button get
+                # no initData from Telegram, so the app couldn't identify the user. The bot
+                # answers it with an inline web_app button instead (which does carry initData).
+                KeyboardButton(text=t("btn_settings", lang)),
                 KeyboardButton(text=t("btn_lang", lang)),
             ],
         ],
     )
 
 
-def open_app_kb(lang: str, section: str = "") -> InlineKeyboardMarkup | None:
+def open_app_kb(lang: str, section: str = "", text_key: str = "open_app") -> InlineKeyboardMarkup | None:
     if not app_enabled():
         return None
     url = app_url() + (f"#{section}" if section else "")
     return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=t("open_app", lang), web_app=WebAppInfo(url=url))]]
+        inline_keyboard=[[InlineKeyboardButton(text=t(text_key, lang), web_app=WebAppInfo(url=url))]]
     )
 
 

@@ -96,9 +96,10 @@ async def admin(message: Message, user: User):
 
 
 @router.message(F.text.in_(_texts("btn_settings")))
-async def settings_without_app(message: Message, user: User):
-    # Only reachable when the Mini App is disabled (otherwise the button opens the app)
-    await message.answer(t("app_unavailable", user.lang))
+@router.message(Command("settings"))
+async def open_settings(message: Message, user: User):
+    kb = open_app_kb(user.lang, "settings", "open_settings")
+    await message.answer(t("settings_hint" if kb else "app_unavailable", user.lang), reply_markup=kb)
 
 
 @router.message(Command("deadlines"))

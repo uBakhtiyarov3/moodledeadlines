@@ -23,6 +23,12 @@ T: dict[str, dict[str, str]] = {
         "Tap <b>Open app</b> below to get started.",
     },
     "open_app": {"uz": "📱 Ilovani ochish", "ru": "📱 Открыть приложение", "en": "📱 Open app"},
+    "open_settings": {"uz": "⚙️ Sozlamalarni ochish", "ru": "⚙️ Открыть настройки", "en": "⚙️ Open settings"},
+    "settings_hint": {
+        "uz": "⚙️ Eslatmalar vaqti, til, fanlar va Moodle ulanishi — barchasi shu yerda:",
+        "ru": "⚙️ Время напоминаний, язык, предметы и подключение Moodle — всё здесь:",
+        "en": "⚙️ Reminder times, language, courses and the Moodle connection — all here:",
+    },
     "open_admin": {"uz": "🛠 Admin panel", "ru": "🛠 Админ-панель", "en": "🛠 Admin panel"},
     "btn_deadlines": {"uz": "⏰ Deadlinelar", "ru": "⏰ Дедлайны", "en": "⏰ Deadlines"},
     "btn_ai": {"uz": "🤖 AI yordamchi", "ru": "🤖 ИИ-помощник", "en": "🤖 AI assistant"},

@@ -68,7 +68,11 @@ UW.setDict({
   err_bad_token: { uz: "Moodle linkni qabul qilmadi. Yangi link oling", ru: "Moodle не принял ссылку. Получите новую", en: "Moodle rejected the link. Get a new one" },
   err_network: { uz: "Moodle javob bermayapti, keyinroq urinib ko'ring", ru: "Moodle не отвечает, попробуйте позже", en: "Moodle isn't responding, try later" },
   err_generic: { uz: "Xatolik yuz berdi", ru: "Произошла ошибка", en: "Something went wrong" },
-  err_open_in_tg: { uz: "Ilovani Telegram ichida oching", ru: "Откройте приложение в Telegram", en: "Please open the app inside Telegram" },
+  err_open_in_tg: {
+    uz: "Ilovani botdagi «Pulse» menyu tugmasi yoki xabar ostidagi tugma orqali oching",
+    ru: "Откройте приложение кнопкой меню «Pulse» в боте или кнопкой под сообщением",
+    en: "Open the app with the bot's “Pulse” menu button or a button under a message",
+  },
 
   ai_title: { uz: "AI yordamchi", ru: "ИИ-помощник", en: "AI assistant" },
   ai_left: { uz: "Bugun {n} ta savol qoldi", ru: "Сегодня осталось вопросов: {n}", en: "{n} questions left today" },

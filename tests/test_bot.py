@@ -179,3 +179,16 @@ async def test_chat_only_mode_without_https(tg):
         markup = getattr(call, "reply_markup", None)
         assert "web_app" not in (markup.model_dump_json(exclude_none=True) if markup else "")
     assert any("Salom" in (t or "") for t in texts(out))
+
+
+async def test_settings_button_opens_app_via_inline_button(tg, monkeypatch):
+    """Reply-keyboard web_app buttons get no initData, so Settings must go through an inline button."""
+    from app.bot import keyboards
+
+    monkeypatch.setattr(keyboards, "app_enabled", lambda: True)
+    kb = keyboards.main_kb("uz").model_dump_json(exclude_none=True)
+    assert "web_app" not in kb
+    await tg("/start", uid=906)
+    out = await tg("⚙️ Sozlamalar", uid=906)
+    markup = out[-1].reply_markup.model_dump_json(exclude_none=True)
+    assert "web_app" in markup and "#settings" in markup
