@@ -15,6 +15,11 @@ def app_url(path: str = "app") -> str:
     return f"{get_settings().public_url.rstrip('/')}/{path}/"
 
 
+def app_enabled() -> bool:
+    """Telegram only opens Mini Apps over HTTPS; without it the bot runs chat-only."""
+    return get_settings().public_url.startswith("https://")
+
+
 def lang_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -37,21 +42,27 @@ def main_kb(lang: str) -> ReplyKeyboardMarkup:
                 KeyboardButton(text=t("btn_ai", lang)),
             ],
             [
-                KeyboardButton(text=t("btn_settings", lang), web_app=WebAppInfo(url=app_url() + "#settings")),
+                KeyboardButton(text=t("btn_settings", lang), web_app=WebAppInfo(url=app_url() + "#settings"))
+                if app_enabled()
+                else KeyboardButton(text=t("btn_settings", lang)),
                 KeyboardButton(text=t("btn_lang", lang)),
             ],
         ],
     )
 
 
-def open_app_kb(lang: str, section: str = "") -> InlineKeyboardMarkup:
+def open_app_kb(lang: str, section: str = "") -> InlineKeyboardMarkup | None:
+    if not app_enabled():
+        return None
     url = app_url() + (f"#{section}" if section else "")
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=t("open_app", lang), web_app=WebAppInfo(url=url))]]
     )
 
 
-def admin_kb(lang: str) -> InlineKeyboardMarkup:
+def admin_kb(lang: str) -> InlineKeyboardMarkup | None:
+    if not app_enabled():
+        return None
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=t("open_admin", lang), web_app=WebAppInfo(url=app_url("admin")))]]
     )

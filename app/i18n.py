@@ -123,6 +123,14 @@ T: dict[str, dict[str, str]] = {
         "ru": "📎 Такой файл я не читаю. Отправьте текст, голосовое, фото или PDF.",
         "en": "📎 I can't read this file type. Send text, a voice message, a photo or a PDF.",
     },
+    "app_unavailable": {
+        "uz": "📱 Ilova (Mini App) hozircha ochilmaydi — tez orada ishga tushadi. "
+        "Bot chatida AI yordamchi va deadlinelar ishlayapti.",
+        "ru": "📱 Приложение (Mini App) пока недоступно — скоро заработает. "
+        "В чате бота работают ИИ-помощник и дедлайны.",
+        "en": "📱 The Mini App isn't available yet — coming soon. "
+        "The AI assistant and deadlines work right here in the chat.",
+    },
     "text_only": {
         "uz": "✍️ Hozircha faqat matnli xabarlarni tushunaman. Savolingizni yozib yuboring.",
         "ru": "✍️ Пока я понимаю только текст. Напишите вопрос сообщением.",

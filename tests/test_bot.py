@@ -148,3 +148,22 @@ def test_split_message():
     parts = split_message(text)
     assert all(len(p) <= 3500 for p in parts) and "\n".join(parts) == text
     assert split_message("short") == ["short"]
+
+
+async def test_burst_of_updates_from_new_user(tg):
+    """Many queued updates from a brand-new user are handled concurrently — none may fail."""
+    import asyncio
+
+    results = await asyncio.gather(*(tg("/start", uid=904) for _ in range(8)), return_exceptions=True)
+    assert not [r for r in results if isinstance(r, Exception)]
+
+
+async def test_chat_only_mode_without_https(tg):
+    """With a non-HTTPS PUBLIC_URL Telegram rejects web_app buttons, so none may be sent."""
+    out = list(await tg("/start", uid=905))
+    out += list(await tg(callback="lang:uz", uid=905))
+    out += list(await tg("/admin", uid=905))
+    for call in out:
+        markup = getattr(call, "reply_markup", None)
+        assert "web_app" not in (markup.model_dump_json(exclude_none=True) if markup else "")
+    assert any("Salom" in (t or "") for t in texts(out))

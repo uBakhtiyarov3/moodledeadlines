@@ -64,8 +64,9 @@ async def send_welcome(message: Message, user: User):
         t("welcome", user.lang, name=html.escape(user.first_name or "talaba")),
         reply_markup=main_kb(user.lang),
     )
-    section = "" if user.ical_url_enc else "connect"
-    await message.answer("👇", reply_markup=open_app_kb(user.lang, section))
+    kb = open_app_kb(user.lang, "" if user.ical_url_enc else "connect")
+    if kb:
+        await message.answer("👇", reply_markup=kb)
 
 
 @router.callback_query(F.data.startswith("lang:"))
@@ -90,7 +91,14 @@ async def ask_lang(message: Message, user: User):
 @router.message(Command("admin"))
 async def admin(message: Message, user: User):
     if users.is_admin(user):
-        await message.answer("🛠", reply_markup=admin_kb(user.lang))
+        kb = admin_kb(user.lang)
+        await message.answer("🛠" if kb else t("app_unavailable", user.lang), reply_markup=kb)
+
+
+@router.message(F.text.in_(_texts("btn_settings")))
+async def settings_without_app(message: Message, user: User):
+    # Only reachable when the Mini App is disabled (otherwise the button opens the app)
+    await message.answer(t("app_unavailable", user.lang))
 
 
 @router.message(Command("deadlines"))
