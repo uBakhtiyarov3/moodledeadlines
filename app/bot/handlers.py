@@ -1,4 +1,3 @@
-import html
 import re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -10,6 +9,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, TelegramObject
 from sqlalchemy import delete, select
 
+from app.bot import rich
 from app.bot.keyboards import admin_kb, lang_kb, main_kb, open_app_kb
 from app.config import get_settings
 from app.db import Session
@@ -18,7 +18,6 @@ from app.models import ChatMessage, Deadline, User
 from app.moodle.ical import IcalUrlError
 from app.services import ai, linking, tts, users
 from app.services import settings as rt
-from app.services.tg_html import markdown_to_tg
 
 router = Router()
 # The bot only talks in private chats (it may be added to groups for broadcasts later)
@@ -60,10 +59,8 @@ async def start(message: Message, user: User, created: bool):
 
 
 async def send_welcome(message: Message, user: User):
-    await message.answer(
-        t("welcome", user.lang, name=html.escape(user.first_name or "talaba")),
-        reply_markup=main_kb(user.lang),
-    )
+    name = rich.esc(user.first_name or "talaba")
+    await rich.send(message.bot, message.chat.id, t("welcome_md", user.lang, name=name), main_kb(user.lang))
     kb = open_app_kb(user.lang, "" if user.ical_url_enc else "connect")
     if kb:
         await message.answer("👇", reply_markup=kb)
@@ -109,7 +106,6 @@ async def list_deadlines(message: Message, user: User):
         await message.answer(t("connect_hint", user.lang), reply_markup=open_app_kb(user.lang, "connect"))
         return
     now = datetime.now(timezone.utc)
-    tz = ZoneInfo(get_settings().timezone)
     async with Session() as s:
         rows = (
             await s.execute(
@@ -128,15 +124,24 @@ async def list_deadlines(message: Message, user: User):
     if not rows:
         await message.answer(t("no_deadlines", user.lang), reply_markup=open_app_kb(user.lang))
         return
-    lines = [t("deadlines_head", user.lang), ""]
+    await rich.send(message.bot, message.chat.id, deadlines_markdown(rows, user.lang, now),
+                    open_app_kb(user.lang, "deadlines"))
+
+
+def deadlines_markdown(rows: list[Deadline], lang: str, now: datetime) -> str:
+    """Rich table; dates render in each student's own language and timezone."""
+    tz = ZoneInfo(get_settings().timezone)
+    lines = [t("dl_title", lang), "", t("dl_cols", lang), "|:-:|:--|:--|:--|"]
     for d in rows:
         left = int((d.due_at - now).total_seconds() // 60)
         dot = "🔴" if left < 360 else "🟠" if left < 1440 else "🟢"
-        lines.append(f"{dot} <b>{html.escape(d.title)}</b>")
-        if d.course:
-            lines.append(f"    🎓 {html.escape(d.course)}")
-        lines.append(f"    🕒 {d.due_at.astimezone(tz):%d.%m %H:%M} · {humanize_left(left, user.lang)}")
-    await message.answer("\n".join(lines), reply_markup=open_app_kb(user.lang, "deadlines"))
+        local = d.due_at.astimezone(tz)
+        task = f"**{rich.esc(d.title)}**" + (f"<br>*{rich.esc(d.course)}*" if d.course else "")
+        due = rich.tg_time(d.due_at, "wDT", f"{local:%d.%m %H:%M}")
+        rel = rich.tg_time(d.due_at, "r", humanize_left(left, lang))
+        lines.append(f"| {dot} | {task} | {due} | {rel} |")
+    lines += ["", f"<sub>{t('dl_legend', lang)}</sub>"]
+    return "\n".join(lines)
 
 
 @router.callback_query(F.data.startswith("done:"))
@@ -204,17 +209,15 @@ MAX_FILE = 15 * 1024 * 1024
 
 
 async def _answer_ai(message: Message, user: User, text: str, media: list | None = None, voice: bool = False):
-    await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
+    """Stream the answer live as a rich draft, then send it as a rich message."""
     try:
-        answer = await ai.ask(user, text, media)
+        answer = await rich.stream(
+            message.bot, message.chat.id, ai.ask_stream(user, text, media), thinking=t("thinking", user.lang)
+        )
     except ai.AIUnavailable as e:
         await message.answer(t(AI_ERRORS.get(e.code, "ai_error"), user.lang))
         return
-    for part in split_message(answer):
-        try:
-            await message.answer(markdown_to_tg(part), disable_web_page_preview=True)
-        except Exception:  # noqa: BLE001  (unexpected markup → send as plain text)
-            await message.answer(part, parse_mode=None, disable_web_page_preview=True)
+    await rich.send(message.bot, message.chat.id, answer.strip() or "…")
     # Asked by voice → also answer by voice (text first, so nobody waits for the audio)
     if voice and tts.enabled():
         await message.bot.send_chat_action(message.chat.id, ChatAction.RECORD_VOICE)

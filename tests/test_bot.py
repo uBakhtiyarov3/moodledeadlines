@@ -54,7 +54,23 @@ async def tg(client, monkeypatch):  # noqa: F811
 
 
 def texts(calls):
-    return [getattr(c, "text", None) for c in calls if type(c).__name__ == "SendMessage"]
+    """Text of every message the bot sent (classic or rich; streamed drafts excluded)."""
+    out = []
+    for c in calls:
+        kind = type(c).__name__
+        if kind == "SendMessage":
+            out.append(c.text)
+        elif kind == "SendRichMessage":
+            out.append(c.rich_message.markdown)
+    return out
+
+
+def stream_of(answer: str):
+    async def fake_stream(user, q, media=None):
+        for word in answer.split(" "):
+            yield word + " "
+
+    return fake_stream
 
 
 async def test_start_lang_link_and_ai(tg, monkeypatch):
@@ -62,7 +78,7 @@ async def test_start_lang_link_and_ai(tg, monkeypatch):
     assert "Tilni tanlang" in texts(out)[0]
 
     out = await tg(callback="lang:en")
-    assert any("Hi, <b>Aziz</b>" in (t or "") for t in texts(out))
+    assert any("# 👋 Hi, Aziz!" in (t or "") for t in texts(out))
 
     out = await tg("/deadlines")
     assert "Moodle isn't connected" in texts(out)[0]
@@ -73,16 +89,16 @@ async def test_start_lang_link_and_ai(tg, monkeypatch):
     assert any(type(c).__name__ == "DeleteMessage" for c in out)  # token-bearing message removed
 
     out = await tg("/deadlines")
-    assert "Essay due" in texts(out)[0]
+    table = texts(out)[0]
+    assert "**Essay due**" in table and "| 🔴 |" in table and "tg://time?unix=" in table
 
     from app.services import ai
 
-    async def fake_ask(user, q, media=None):
-        return "**Salom!**"
-
-    monkeypatch.setattr(ai, "ask", fake_ask)
+    monkeypatch.setattr(ai, "ask_stream", stream_of("**Salom!** Qanday yordam kerak?"))
     out = await tg("Kutubxona qayerda?")
-    assert texts(out) == ["<b>Salom!</b>"]
+    kinds = [type(c).__name__ for c in out]
+    assert kinds[0] == "SendRichMessageDraft"  # "thinking…" shown immediately
+    assert texts(out) == ["**Salom!** Qanday yordam kerak?"]  # final answer as one rich message
 
 
 async def test_banned_user_blocked(tg):
@@ -128,7 +144,7 @@ async def test_voice_and_photo_go_to_ai(tg, monkeypatch):
 
     async def fake_ask(user, q, media=None):
         got.append((q, [(m.kind, m.mime, m.data) for m in media or []]))
-        return "javob"
+        yield "javob"
 
     spoken = []
 
@@ -137,7 +153,7 @@ async def test_voice_and_photo_go_to_ai(tg, monkeypatch):
         return b"OggS-voice"
 
     monkeypatch.setattr(handlers, "download", fake_download)
-    monkeypatch.setattr(ai, "ask", fake_ask)
+    monkeypatch.setattr(ai, "ask_stream", fake_ask)
     monkeypatch.setattr(handlers.tts, "synthesize", fake_tts)
     monkeypatch.setattr(handlers.tts, "enabled", lambda: True)
     await tg("/start", uid=903)
@@ -145,7 +161,7 @@ async def test_voice_and_photo_go_to_ai(tg, monkeypatch):
     assert texts(out) == ["javob"] and got[-1] == ("", [("audio", "audio/ogg", b"bytes-of-v")])
     # voice question → text answer first, then a voice note
     names = [type(c).__name__ for c in out]
-    assert names.index("SendMessage") < names.index("SendVoice") and spoken == ["javob"]
+    assert names.index("SendRichMessage") < names.index("SendVoice") and spoken == ["javob"]
     out = await tg("shu insho qanday?", photo=True, uid=903)
     assert got[-1] == ("shu insho qanday?", [("image", "image/jpeg", b"bytes-of-f")])
     assert "SendVoice" not in [type(c).__name__ for c in out] and len(spoken) == 1  # photo → no voice

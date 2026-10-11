@@ -57,7 +57,7 @@ def open_app_kb(lang: str, section: str = "", text_key: str = "open_app") -> Inl
         return None
     url = app_url() + (f"#{section}" if section else "")
     return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=t(text_key, lang), web_app=WebAppInfo(url=url))]]
+        inline_keyboard=[[InlineKeyboardButton(text=t(text_key, lang), web_app=WebAppInfo(url=url), style="primary")]]
     )
 
 
@@ -70,7 +70,7 @@ def admin_kb(lang: str) -> InlineKeyboardMarkup | None:
 
 
 def reminder_kb(d: Deadline, lang: str) -> InlineKeyboardMarkup:
-    row = [InlineKeyboardButton(text=t("btn_done", lang), callback_data=f"done:{d.id}")]
+    row = [InlineKeyboardButton(text=t("btn_done", lang), callback_data=f"done:{d.id}", style="success")]
     if d.url:
         row.append(InlineKeyboardButton(text=t("btn_open_moodle", lang), url=d.url))
     return InlineKeyboardMarkup(inline_keyboard=[row])

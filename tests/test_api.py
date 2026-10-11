@@ -122,11 +122,13 @@ async def test_reminder_dispatch(client):
     sent = []
 
     class FakeBot:
-        async def send_message(self, chat_id, text, **kw):
-            sent.append((chat_id, text))
+        async def __call__(self, method):
+            sent.append((method.chat_id, method.rich_message.markdown))
+            return True
 
     assert await reminders.dispatch_due_reminders(FakeBot()) == 1  # only the 6h one for the 5h-away essay
-    assert "6" in sent[0][1] and "Essay due" in sent[0][1]
+    md = sent[0][1]
+    assert md.startswith("### ⚠️ **6") and "**Essay due**" in md and "tg://time?unix=" in md
     assert await reminders.dispatch_due_reminders(FakeBot()) == 0  # not repeated
     async with Session() as s:
         from sqlalchemy import select

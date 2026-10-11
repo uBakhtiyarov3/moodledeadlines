@@ -1,7 +1,6 @@
 """Reminder planning (pure) and dispatch."""
 
 import asyncio
-import html
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -46,23 +45,27 @@ def plan_reminder(due_at: datetime, now: datetime, offsets: list[int], already: 
 
 
 def format_reminder(d: Deadline, offset: int, lang: str, now: datetime) -> str:
+    """Rich Markdown reminder; the dates render in the student's own language and timezone."""
+    from app.bot.rich import esc, tg_time
+
     tz = ZoneInfo(get_settings().timezone)
-    due_local = d.due_at.astimezone(tz).strftime("%d.%m.%Y %H:%M")
+    local = d.due_at.astimezone(tz)
     left_min = int((d.due_at - now).total_seconds() // 60)
-    parts = [
-        reminder_head(offset, lang),
-        "",
-        f"📘 <b>{html.escape(d.title)}</b>",
-    ]
+    head = reminder_head(offset, lang).replace("<b>", "**").replace("</b>", "**")
+    parts = [f"### {head}", "", f"📘 **{esc(d.title)}**"]
     if d.course:
-        parts.append(f"🎓 {html.escape(d.course)}")
-    parts.append(f"🕒 {due_local}  ·  {t('left', lang)}: <b>{humanize_left(left_min, lang)}</b>")
+        parts.append(f"🎓 *{esc(d.course)}*")
+    parts.append(
+        f"🕒 {tg_time(d.due_at, 'wDT', f'{local:%d.%m.%Y %H:%M}')}  ·  "
+        f"{t('left', lang)}: **{tg_time(d.due_at, 'r', humanize_left(left_min, lang))}**"
+    )
     return "\n".join(parts)
 
 
 async def dispatch_due_reminders(bot, now: datetime | None = None) -> int:
     """Send all reminders that are due now. Returns number of messages sent."""
     from aiogram.exceptions import TelegramForbiddenError
+    from app.bot import rich
     from app.bot.keyboards import reminder_kb
 
     now = now or datetime.now(timezone.utc)
@@ -106,12 +109,7 @@ async def dispatch_due_reminders(bot, now: datetime | None = None) -> int:
                 s.add(ReminderLog(deadline_id=d.id, offset_min=o, due_at=d.due_at, skipped=True))
             if plan.send is not None:
                 try:
-                    await bot.send_message(
-                        u.id,
-                        format_reminder(d, plan.send, u.lang, now),
-                        reply_markup=reminder_kb(d, u.lang),
-                        disable_web_page_preview=True,
-                    )
+                    await rich.send(bot, u.id, format_reminder(d, plan.send, u.lang, now), reminder_kb(d, u.lang))
                     sent += 1
                 except TelegramForbiddenError:
                     u.blocked_bot = True

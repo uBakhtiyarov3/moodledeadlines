@@ -92,6 +92,7 @@ _INLINE_RULES = [
     (re.compile(r"\|\|([^\n|][^\n]*?)\|\|"), r"<tg-spoiler>\1</tg-spoiler>"),
     (re.compile(r"(?<![\w*])\*(?![\s*])([^\n*]+?)(?<!\s)\*(?![\w*])"), r"<i>\1</i>"),
     (re.compile(r"(?<![\w_])_(?![\s_])([^\n_]+?)(?<!\s)_(?![\w_])"), r"<i>\1</i>"),
+    (re.compile(r"!\[([^\]\n]*)\]\(tg://[^)\s]+\)"), r"\1"),  # rich-only dates/emoji → label
     (re.compile(r"\[([^\]\n]+)\]\((https?://[^)\s]+)\)"), r'<a href="\2">\1</a>'),
 ]
 
@@ -123,6 +124,7 @@ def markdown_to_tg(md: str) -> str:
         flags=re.S,
     )
     text = re.sub(r"`([^`\n]+)`", lambda m: keep(f"<code>{html.escape(m.group(1), quote=False)}</code>"), text)
+    text = re.sub(r"\\([\\`*_{}\[\]<>()#+\-.!|~=$])", r"\1", text)  # drop Markdown escapes
     text = html.escape(text, quote=False)
 
     out: list[str] = []

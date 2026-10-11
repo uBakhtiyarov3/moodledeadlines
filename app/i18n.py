@@ -22,6 +22,34 @@ T: dict[str, dict[str, str]] = {
         "🤖 I answer questions about the university with AI\n\n"
         "Tap <b>Open app</b> below to get started.",
     },
+    "welcome_md": {
+        "uz": "# 👋 Salom, {name}!\n\n**UWED Pulse** — UWED talabalari uchun shaxsiy yordamchi.\n\n"
+        "- ⏰ **Deadlinelar** — Moodle'dagi vazifalaringizni kuzataman va o'z vaqtida eslataman\n"
+        "- 🤖 **AI yordamchi** — o'qish, Moodle va universitet haqida savollarga javob beraman; "
+        "matn, 🎤 ovoz, 🖼 rasm va 📄 PDF tushunaman\n"
+        "- ⚙️ **Sozlamalar** — eslatma vaqtlari va tilni o'zingiz tanlaysiz\n\n"
+        "Boshlash uchun pastdagi **Pulse** tugmasini bosing yoki savolingizni yozing.",
+        "ru": "# 👋 Привет, {name}!\n\n**UWED Pulse** — личный помощник студентов UWED.\n\n"
+        "- ⏰ **Дедлайны** — слежу за заданиями в Moodle и вовремя напоминаю\n"
+        "- 🤖 **ИИ-помощник** — отвечаю на вопросы об учёбе, Moodle и университете; "
+        "понимаю текст, 🎤 голос, 🖼 фото и 📄 PDF\n"
+        "- ⚙️ **Настройки** — время напоминаний и язык выбираете сами\n\n"
+        "Нажмите **Pulse** внизу или просто задайте вопрос.",
+        "en": "# 👋 Hi, {name}!\n\n**UWED Pulse** — your personal assistant at UWED.\n\n"
+        "- ⏰ **Deadlines** — I track your Moodle tasks and remind you on time\n"
+        "- 🤖 **AI assistant** — I answer questions about studies, Moodle and the university; "
+        "I understand text, 🎤 voice, 🖼 photos and 📄 PDFs\n"
+        "- ⚙️ **Settings** — choose your reminder times and language\n\n"
+        "Tap **Pulse** below or just ask a question.",
+    },
+    "dl_title": {"uz": "## ⏰ Yaqin deadlinelar", "ru": "## ⏰ Ближайшие дедлайны", "en": "## ⏰ Upcoming deadlines"},
+    "dl_cols": {"uz": "| | Vazifa | Muddat | Qoldi |", "ru": "| | Задание | Срок | Осталось |", "en": "| | Task | Due | Left |"},
+    "dl_legend": {
+        "uz": "🔴 6 soatdan kam · 🟠 bugun-ertaga · 🟢 vaqt bor",
+        "ru": "🔴 меньше 6 ч · 🟠 сегодня-завтра · 🟢 есть время",
+        "en": "🔴 under 6 h · 🟠 within a day · 🟢 plenty of time",
+    },
+    "thinking": {"uz": "O‘ylayapman…", "ru": "Думаю…", "en": "Thinking…"},
     "open_app": {"uz": "📱 Ilovani ochish", "ru": "📱 Открыть приложение", "en": "📱 Open app"},
     "open_settings": {"uz": "⚙️ Sozlamalarni ochish", "ru": "⚙️ Открыть настройки", "en": "⚙️ Open settings"},
     "settings_hint": {

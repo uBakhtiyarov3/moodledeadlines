@@ -11,6 +11,8 @@ UWED talabalari uchun Telegram bot + Mini App:
   ishlaydi; admin to'ldiradigan bilim bazasiga tayanadi. Kerak bo'lsa Claude (Amazon Bedrock) ga bir qator bilan o'tadi.
 - 🛠 **Admin panel** (alohida Mini App) — statistika, foydalanuvchilar, rich-text xabar yuborish,
   AI bilim bazasi, sozlamalar.
+- ✨ **Telegram Rich Messages** (Bot API 10.x): AI javoblari sarlavha, jadval, ro'yxat, formula bilan va
+  yozilish jarayonida jonli (draft streaming); deadlinelar jadvali sanalari har bir talabaning o'z vaqt zonasida.
 - 🌐 O'zbek / Rus / Ingliz. 🎨 Liquid glass dizayn, UWED ranglari (#8a0119 + #123654, oq).
 
 ---

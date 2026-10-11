@@ -249,3 +249,78 @@ def test_tts_sends_only_the_answer():
     body = request_body("Salom, talaba!")
     assert body["contents"] == [{"parts": [{"text": "Salom, talaba!"}]}]  # no instructions to read aloud
     assert body["generationConfig"]["responseModalities"] == ["AUDIO"]
+
+
+async def test_gemini_stream_parses_sse(monkeypatch):
+    import httpx
+
+    from app.config import get_settings
+    from app.services import ai
+
+    sse = (
+        'data: {"candidates":[{"content":{"parts":[{"text":"plan","thought":true}]}}]}\n\n'
+        'data: {"candidates":[{"content":{"parts":[{"text":"Salom, "}]}}]}\n\n'
+        'data: {"candidates":[{"content":{"parts":[{"text":"talaba!"}]}}]}\n\n'
+    )
+    seen = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        return httpx.Response(200, text=sse, headers={"content-type": "text/event-stream"})
+
+    monkeypatch.setattr(get_settings(), "gemini_api_key", "k")
+    monkeypatch.setattr(ai, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    chunks = [c async for c in ai._gemini_stream("sys", [{"role": "user", "text": "hi"}])]
+    assert chunks == ["Salom, ", "talaba!"]  # thought parts skipped
+    assert ":streamGenerateContent?alt=sse" in seen[0]
+
+
+async def test_gemini_stream_falls_back_and_reports_busy(monkeypatch):
+    import httpx
+    import pytest
+
+    from app.config import get_settings
+    from app.services import ai
+
+    calls = []
+
+    def busy(request):
+        calls.append(request.url.path)
+        return httpx.Response(503, text="overloaded")
+
+    monkeypatch.setattr(get_settings(), "gemini_api_key", "k")
+    monkeypatch.setattr(ai, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(busy)))
+    with pytest.raises(ai.AIUnavailable) as e:
+        [c async for c in ai._gemini_stream("sys", [{"role": "user", "text": "hi"}])]
+    assert e.value.code == "busy" and len(calls) == len(ai._models())
+
+
+async def test_rich_send_falls_back_to_classic():
+    from aiogram.exceptions import TelegramBadRequest
+    from aiogram.methods import SendRichMessage
+
+    from app.bot import rich
+
+    sent = []
+
+    class Bot:
+        async def __call__(self, method):
+            if isinstance(method, SendRichMessage):
+                raise TelegramBadRequest(method=method, message="RICH_MESSAGE_INVALID")
+            return True
+
+        async def send_message(self, chat_id, text, **kw):
+            sent.append(text)
+
+    await rich.send(Bot(), 1, "## Reja\n- **bir**\n- ikki")
+    assert sent == ["<b>Reja</b>\n• <b>bir</b>\n• ikki"]
+
+
+def test_rich_escape_and_time():
+    from datetime import datetime, timezone
+
+    from app.bot.rich import esc, tg_time
+
+    assert esc("Essay #2 [draft] *v1.0*") == r"Essay \#2 \[draft\] \*v1\.0\*"
+    dt = datetime(2026, 10, 12, 17, 0, tzinfo=timezone.utc)
+    assert tg_time(dt, "r", "5 soat") == "![5 soat](tg://time?unix=1791824400&format=r)"
