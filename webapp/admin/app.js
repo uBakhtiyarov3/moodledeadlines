@@ -16,11 +16,12 @@
   }
 
   // ---------- nav ----------
-  const loaders = { dash: loadDash, users: () => loadUsers(true), bc: loadBc, ai: loadKb, set: loadSettings };
+  const loaders = { dash: loadDash, users: () => loadUsers(true), bc: loadBc, chat: loadInbox, ai: loadKb, set: loadSettings };
   function show(page) {
     $$(".page").forEach((p) => p.classList.toggle("active", p.id === "page-" + page));
     $$("#dock button").forEach((b) => b.classList.toggle("active", b.dataset.page === page));
-    if (!loaded[page]) { loaded[page] = true; loaders[page](); }
+    if (page === "chat") { loadInbox(); startChatPoll(); } else stopChatPoll();
+    if (!loaded[page]) { loaded[page] = true; if (page !== "chat") loaders[page](); }
     window.scrollTo({ top: 0 });
   }
   $$("#dock button").forEach((b) => (b.onclick = () => { haptic("select"); show(b.dataset.page); }));
@@ -35,7 +36,9 @@
         ["k_active", s.active_week, "navy"], ["k_new", s.new_day, "crimson"],
         ["k_upcoming", s.upcoming_deadlines, "navy"], ["k_rem", s.reminders_day, "crimson"],
         ["k_ai", s.ai_questions_day, "navy"], ["k_blocked", s.blocked, "crimson"],
+        ["k_support", s.support_unread, "crimson"],
       ];
+      setChatBadge(s.support_unread);
       $("#kpis").innerHTML = k.map(([l, v, c]) => `<div class="glass kpi ${c}"><div class="v">${v}</div><div class="l">${t(l)}</div></div>`).join("");
       const max = Math.max(1, ...s.growth.map((g) => g.n));
       $("#growth").innerHTML = s.growth.map((g, i) =>
@@ -238,6 +241,94 @@
     } catch (e) { toast(errText(e), "error"); }
   };
 
+  // ---------- student chats ----------
+  let openUid = null, threadItems = [], chatTimer = null;
+  function setChatBadge(n) {
+    const b = $("#chat-badge");
+    b.textContent = n > 9 ? "9+" : String(n || 0);
+    b.classList.toggle("hidden", !n);
+  }
+  const initial = (n) => esc(((n || "?").trim()[0] || "?").toUpperCase());
+  async function loadInbox() {
+    if (openUid) return loadThread(false);
+    try {
+      const r = await api("/api/admin/support");
+      setChatBadge(r.unread);
+      $("#inbox-sub").textContent = t("chats_sub", { n: r.unread });
+      $("#inbox-list").innerHTML = r.items.length ? r.items.map((c) => `
+        <div class="item" data-uid="${c.user_id}">
+          <div class="avatar">${initial(c.first_name)}</div>
+          <div class="grow" style="min-width:0">
+            <div class="row"><div class="grow title ellipsis">${esc(c.first_name || "—")} ${c.username ? `<span class="muted small">@${esc(c.username)}</span>` : ""}</div>
+              <span class="muted small">${UW.fmt.time(new Date(c.last_at))}</span></div>
+            <div class="row"><div class="grow meta ellipsis">${c.last_from_admin ? t("you") + ": " : ""}${esc(c.last_text)}</div>
+              ${c.unread ? `<span class="unread-pill">${c.unread}</span>` : ""}</div>
+          </div></div>`).join("") : `<div class="empty muted">💬 ${t("chats_empty")}</div>`;
+      $$("#inbox-list .item").forEach((el) => (el.onclick = () => openThread(+el.dataset.uid)));
+    } catch (e) { toast(errText(e), "error"); }
+  }
+  function renderThread(scroll) {
+    let html = "", lastDay = "";
+    threadItems.forEach((m) => {
+      const at = new Date(m.at);
+      const day = UW.fmt.day(at);
+      if (day !== lastDay) { html += `<div class="sup-day">${esc(day)}</div>`; lastDay = day; }
+      const mine = m.from_admin;
+      const tick = mine ? ` ${m.pending ? "🕓" : m.read ? "✓✓" : "✓"}` : "";
+      html += `<div class="bubble ${mine ? "me" : ""}">${esc(m.text)}<span class="meta">${UW.fmt.time(at)}${tick}</span></div>`;
+    });
+    const atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 80;
+    $("#thread-list").innerHTML = html;
+    if (scroll || atBottom) window.scrollTo({ top: document.body.scrollHeight });
+  }
+  async function loadThread(scroll) {
+    try {
+      const r = await api("/api/admin/support/" + openUid);
+      const u = r.user;
+      $("#thread-avatar").textContent = ((u.first_name || "?")[0] || "?").toUpperCase();
+      $("#thread-name").textContent = u.first_name || "—";
+      $("#thread-meta").textContent = [u.username ? "@" + u.username : null, "ID " + u.id, u.lang.toUpperCase()].filter(Boolean).join(" · ");
+      if (JSON.stringify(r.items) !== JSON.stringify(threadItems.filter((m) => !m.pending))) {
+        threadItems = r.items; renderThread(scroll);
+      }
+    } catch (e) { toast(errText(e), "error"); }
+  }
+  function openThread(uid) {
+    openUid = uid; threadItems = [];
+    $("#inbox").classList.add("hidden"); $("#thread").classList.remove("hidden");
+    $("#thread-list").innerHTML = '<div class="skeleton"></div>';
+    loadThread(true);
+    if (UW.tg && UW.tg.BackButton) { UW.tg.BackButton.show(); UW.tg.BackButton.onClick(closeThread); }
+  }
+  function closeThread() {
+    openUid = null;
+    $("#thread").classList.add("hidden"); $("#inbox").classList.remove("hidden");
+    if (UW.tg && UW.tg.BackButton) { UW.tg.BackButton.offClick(closeThread); UW.tg.BackButton.hide(); }
+    loadInbox();
+  }
+  function startChatPoll() { clearInterval(chatTimer); chatTimer = setInterval(loadInbox, 4000); }
+  function stopChatPoll() { clearInterval(chatTimer); chatTimer = null; }
+  $("#thread-back").onclick = closeThread;
+  $("#thread-send").innerHTML = I.send;
+  async function sendReply() {
+    const input = $("#thread-input");
+    const text = input.value.trim();
+    if (!text || !openUid) return;
+    input.value = ""; input.style.height = "";
+    const temp = { id: -Date.now(), from_admin: true, text, at: new Date().toISOString(), pending: true };
+    threadItems.push(temp); renderThread(true); haptic("light");
+    try {
+      Object.assign(temp, await api("/api/admin/support/" + openUid, { body: { text } }), { pending: false });
+      renderThread(false);
+    } catch (e) {
+      threadItems = threadItems.filter((x) => x !== temp); renderThread(false);
+      input.value = text; toast(errText(e), "error");
+    }
+  }
+  $("#thread-form").onsubmit = (e) => { e.preventDefault(); sendReply(); };
+  $("#thread-input").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; });
+  $("#thread-input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !("ontouchstart" in window)) { e.preventDefault(); sendReply(); } });
+
   // ---------- knowledge base ----------
   let docs = [];
   async function loadKb() {
@@ -330,6 +421,7 @@
     }
     UW.setLang(me.lang);
     $("#editor").dataset.ph = t("editor_ph");
-    show("dash");
+    const m = UW.startPage().match(/^chat-(\d+)$/);
+    if (m) { show("chat"); openThread(+m[1]); } else show("dash");
   })();
 })();

@@ -28,7 +28,7 @@ async def tg(client, monkeypatch):  # noqa: F811
     dp.include_router(router)
     n = iter(range(1, 10_000))
 
-    async def send(text=None, callback=None, uid=900, photo=False, voice=None, sticker=False):
+    async def send(text=None, callback=None, uid=900, photo=False, voice=None, sticker=False, reply_to=None):
         user = {"id": uid, "is_bot": False, "first_name": "Aziz", "language_code": "uz"}
         chat = {"id": uid, "type": "private"}
         msg = {"message_id": next(n), "date": int(datetime.now(timezone.utc).timestamp()), "chat": chat, "from": user}
@@ -42,6 +42,8 @@ async def tg(client, monkeypatch):  # noqa: F811
             msg["sticker"] = {"file_id": "s", "file_unique_id": "us", "type": "regular", "width": 1, "height": 1, "is_animated": False, "is_video": False}
         else:
             msg["text"] = text or "x"
+        if reply_to:
+            msg["reply_to_message"] = {"message_id": reply_to, "date": msg["date"], "chat": chat}
         if callback:
             upd = {"update_id": next(n), "callback_query": {"id": "1", "from": user, "chat_instance": "c", "data": callback, "message": msg}}
         else:
@@ -207,4 +209,55 @@ async def test_settings_button_opens_app_via_inline_button(tg, monkeypatch):
     await tg("/start", uid=906)
     out = await tg("⚙️ Sozlamalar", uid=906)
     markup = out[-1].reply_markup.model_dump_json(exclude_none=True)
-    assert "web_app" in markup and "#settings" in markup
+    assert "web_app" in markup and "?p=settings" in markup
+
+
+async def test_admin_chat_flow(tg, monkeypatch):
+    """Student opens the admin chat, writes; admin gets a rich card and answers two ways."""
+    from app.db import Session
+    from app.models import SupportMessage, SupportRelay
+    from app.services import ai, support
+    from sqlalchemy import select
+
+    async def no_ai(*a, **kw):
+        raise AssertionError("support messages must not reach the AI")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(ai, "ask_stream", no_ai)
+    await tg("/start", uid=1)  # admin (ADMIN_IDS=1)
+    await tg("/start", uid=910)
+    out = await tg("💬 Admin bilan chat", uid=910)
+    assert texts(out)[0].startswith("### 💬 Admin bilan chat")
+    assert "sup:close" in out[-1].reply_markup.model_dump_json()
+
+    out = await tg("Kontrakt bo'yicha savolim bor", uid=910)
+    cards = [c for c in out if type(c).__name__ == "SendRichMessage" and c.chat_id == 1]
+    assert cards and "Yangi murojaat" in cards[0].rich_message.markdown
+    assert "> Kontrakt bo'yicha savolim bor" in cards[0].rich_message.markdown.replace("\\'", "'")
+    assert "sup:reply:910" in cards[0].reply_markup.model_dump_json()
+    assert any(type(c).__name__ == "SetMessageReaction" for c in out)  # 👌 to the student
+
+    # admin taps "↩️ Javob berish", then writes
+    out = await tg(callback="sup:reply:910", uid=1)
+    assert "Javob" in texts(out)[0]
+    out = await tg("Dekanatga murojaat qiling, 204-xona", uid=1)
+    to_student = [c for c in out if type(c).__name__ == "SendRichMessage" and c.chat_id == 910]
+    assert to_student and to_student[0].rich_message.markdown.startswith("### 👨‍💼 Admin")
+    assert any("Yuborildi" in (t or "") for t in texts(out))
+
+    # native Telegram reply to a relayed card also works
+    async with Session() as s:
+        s.add(SupportRelay(admin_id=1, message_id=555, user_id=910))
+        await s.commit()
+    out = await tg("Yana bir narsa", uid=1, reply_to=555)
+    assert any(type(c).__name__ == "SendRichMessage" and c.chat_id == 910 for c in out)
+    async with Session() as s:
+        rows = (await s.execute(select(SupportMessage).where(SupportMessage.user_id == 910))).scalars().all()
+    assert [(m.from_admin, m.text) for m in rows] == [
+        (False, "Kontrakt bo'yicha savolim bor"), (True, "Dekanatga murojaat qiling, 204-xona"), (True, "Yana bir narsa")]
+    assert await support.relay_target(1, 555) == 910
+
+    # student closes the chat → back to AI
+    out = await tg(callback="sup:close", uid=910)
+    assert any("yopildi" in (t or "") for t in texts(out))
+    assert await support.get_state(910) is None

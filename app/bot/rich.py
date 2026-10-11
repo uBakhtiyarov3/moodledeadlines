@@ -32,6 +32,13 @@ def esc(text: str) -> str:
     return _MD_SPECIAL.sub(r"\\\1", text or "")
 
 
+def from_html(text: str) -> str:
+    """i18n strings use a few Telegram-HTML tags; turn them into Rich Markdown."""
+    for a, b in (("<b>", "**"), ("</b>", "**"), ("<i>", "*"), ("</i>", "*"), ("<code>", "`"), ("</code>", "`")):
+        text = text.replace(a, b)
+    return text
+
+
 def tg_time(dt: datetime, fmt: str = "wDT", fallback: str | None = None) -> str:
     """A date shown in each reader's own language/timezone (r = relative, wDT = weekday+date+time)."""
     label = fallback or dt.strftime("%d.%m %H:%M")

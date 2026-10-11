@@ -242,3 +242,41 @@ async def test_admin_access_and_features(client, monkeypatch):
 async def test_static_apps(client):
     for path in ("/app/", "/admin/", "/shared/glass.css", "/shared/core.js", "/shared/logo.png", "/app/app.js", "/admin/app.js"):
         assert (await client.get(path)).status_code == 200, path
+
+
+async def test_support_chat_api(client, monkeypatch):
+    from app.services import support
+
+    delivered = []
+
+    async def fake_send(bot, chat_id, markdown, kb=None):
+        delivered.append((chat_id, markdown))
+
+    monkeypatch.setattr(support, "_send_rich", fake_send)
+    hs, ha = auth(60, "Laylo"), auth(1, "Boss")
+    await client.get("/api/me", headers=ha)
+
+    r = await client.post("/api/support", headers=hs, json={"text": "Salom, imtihon jadvali qachon?"})
+    assert r.status_code == 200 and r.json()["from_admin"] is False
+    assert delivered[-1][0] == 1 and "Yangi murojaat" in delivered[-1][1]
+
+    inbox = (await client.get("/api/admin/support", headers=ha)).json()
+    assert inbox["unread"] == 1 and inbox["items"][0]["user_id"] == 60 and inbox["items"][0]["unread"] == 1
+    assert (await client.get("/api/admin/stats", headers=ha)).json()["support_unread"] == 1
+
+    th = (await client.get("/api/admin/support/60", headers=ha)).json()  # opening marks as read
+    assert th["user"]["first_name"] == "Laylo" and len(th["items"]) == 1
+    assert (await client.get("/api/admin/support", headers=ha)).json()["unread"] == 0
+
+    r = await client.post("/api/admin/support/60", headers=ha, json={"text": "Ertaga e'lon qilinadi"})
+    assert r.json()["from_admin"] is True
+    assert delivered[-1][0] == 60 and delivered[-1][1].startswith("### 👨‍💼 Admin")
+
+    me = (await client.get("/api/me", headers=hs)).json()
+    assert me["support_unread"] == 1
+    items = (await client.get("/api/support", headers=hs)).json()["items"]
+    assert [m["from_admin"] for m in items] == [False, True] and items[0]["read"] is True  # admin read it
+    assert (await client.get("/api/me", headers=hs)).json()["support_unread"] == 0
+
+    # students can't read other threads or the admin inbox
+    assert (await client.get("/api/admin/support", headers=hs)).status_code == 403

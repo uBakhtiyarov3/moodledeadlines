@@ -5,8 +5,8 @@ from zoneinfo import ZoneInfo
 import httpx
 from aiogram import BaseMiddleware, F, Router
 from aiogram.enums import ChatAction
-from aiogram.filters import Command, CommandStart
-from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, TelegramObject
+from aiogram.filters import Command, CommandStart, Filter
+from aiogram.types import BufferedInputFile, CallbackQuery, ReactionTypeEmoji, InlineKeyboardButton, InlineKeyboardMarkup, Message, TelegramObject
 from sqlalchemy import delete, select
 
 from app.bot import rich
@@ -16,7 +16,7 @@ from app.db import Session
 from app.i18n import T, humanize_left, t
 from app.models import ChatMessage, Deadline, User
 from app.moodle.ical import IcalUrlError
-from app.services import ai, linking, tts, users
+from app.services import ai, linking, support, tts, users
 from app.services import settings as rt
 
 router = Router()
@@ -34,16 +34,24 @@ class UserMiddleware(BaseMiddleware):
             return await handler(event, data)
         user, created = await users.upsert(tg.id, tg.first_name, tg.username, tg.language_code)
         data["user"], data["created"] = user, created
-        answer = getattr(event, "answer", None)
+        async def notify(key: str):
+            if isinstance(event, Message):
+                await say(event, t(key, user.lang))
+            elif isinstance(event, CallbackQuery):
+                await event.answer(t(key, user.lang), show_alert=True)
+
         if user.is_banned:
-            if answer:
-                await answer(t("banned", user.lang))
+            await notify("banned")
             return None
         if rt.get("maintenance") and not users.is_admin(user):
-            if answer:
-                await answer(t("maintenance", user.lang))
+            await notify("maintenance")
             return None
         return await handler(event, data)
+
+
+async def say(msg: Message, text: str, kb=None) -> None:
+    """Every bot reply goes out as a Telegram rich message (classic HTML fallback)."""
+    await rich.send(msg.bot, msg.chat.id, rich.from_html(text), kb)
 
 
 def _texts(key: str) -> set[str]:
@@ -53,7 +61,7 @@ def _texts(key: str) -> set[str]:
 @router.message(CommandStart())
 async def start(message: Message, user: User, created: bool):
     if created:
-        await message.answer(t("choose_lang", user.lang), reply_markup=lang_kb())
+        await say(message, t("choose_lang", user.lang), lang_kb())
         return
     await send_welcome(message, user)
 
@@ -63,7 +71,7 @@ async def send_welcome(message: Message, user: User):
     await rich.send(message.bot, message.chat.id, t("welcome_md", user.lang, name=name), main_kb(user.lang))
     kb = open_app_kb(user.lang, "" if user.ical_url_enc else "connect")
     if kb:
-        await message.answer("👇", reply_markup=kb)
+        await say(message, t("open_app_hint", user.lang), kb)
 
 
 @router.callback_query(F.data.startswith("lang:"))
@@ -82,28 +90,28 @@ async def set_lang(cb: CallbackQuery, user: User):
 @router.message(Command("lang"))
 @router.message(F.text.in_(_texts("btn_lang")))
 async def ask_lang(message: Message, user: User):
-    await message.answer(t("choose_lang", user.lang), reply_markup=lang_kb())
+    await say(message, t("choose_lang", user.lang), lang_kb())
 
 
 @router.message(Command("admin"))
 async def admin(message: Message, user: User):
     if users.is_admin(user):
         kb = admin_kb(user.lang)
-        await message.answer("🛠" if kb else t("app_unavailable", user.lang), reply_markup=kb)
+        await say(message, t("admin_hint" if kb else "app_unavailable", user.lang), kb)
 
 
 @router.message(F.text.in_(_texts("btn_settings")))
 @router.message(Command("settings"))
 async def open_settings(message: Message, user: User):
     kb = open_app_kb(user.lang, "settings", "open_settings")
-    await message.answer(t("settings_hint" if kb else "app_unavailable", user.lang), reply_markup=kb)
+    await say(message, t("settings_hint" if kb else "app_unavailable", user.lang), kb)
 
 
 @router.message(Command("deadlines"))
 @router.message(F.text.in_(_texts("btn_deadlines")))
 async def list_deadlines(message: Message, user: User):
     if not user.ical_url_enc:
-        await message.answer(t("connect_hint", user.lang), reply_markup=open_app_kb(user.lang, "connect"))
+        await say(message, t("connect_hint", user.lang), open_app_kb(user.lang, "connect"))
         return
     now = datetime.now(timezone.utc)
     async with Session() as s:
@@ -122,7 +130,7 @@ async def list_deadlines(message: Message, user: User):
             )
         ).scalars().all()
     if not rows:
-        await message.answer(t("no_deadlines", user.lang), reply_markup=open_app_kb(user.lang))
+        await say(message, t("no_deadlines", user.lang), open_app_kb(user.lang))
         return
     await rich.send(message.bot, message.chat.id, deadlines_markdown(rows, user.lang, now),
                     open_app_kb(user.lang, "deadlines"))
@@ -154,7 +162,124 @@ async def mark_done(cb: CallbackQuery, user: User):
             await s.commit()
     await cb.answer(t("marked_done", user.lang), show_alert=False)
     await cb.message.edit_reply_markup(reply_markup=None)
-    await cb.message.reply(t("marked_done", user.lang))
+    await say(cb.message, t("marked_done", user.lang))
+
+
+# ================================================================ admin chat (support)
+
+def _support_kb(lang: str):
+    from app.bot.keyboards import app_enabled, app_url
+
+    row = [InlineKeyboardButton(text=t("support_btn_close", lang), callback_data="sup:close", style="danger")]
+    if app_enabled():
+        from aiogram.types import WebAppInfo
+
+        row.insert(0, InlineKeyboardButton(text=t("support_btn_app", lang), web_app=WebAppInfo(url=app_url() + "?p=support")))
+    return InlineKeyboardMarkup(inline_keyboard=[row])
+
+
+async def _open_support(message: Message, user: User):
+    await support.set_state(user.id, "chat")
+    await rich.send(message.bot, message.chat.id, t("support_intro", user.lang), _support_kb(user.lang))
+
+
+@router.message(F.text.in_(_texts("btn_support")))
+@router.message(Command("support"))
+async def support_open(message: Message, user: User):
+    await _open_support(message, user)
+
+
+@router.callback_query(F.data == "sup:open")
+async def support_open_cb(cb: CallbackQuery, user: User):
+    await cb.answer()
+    await _open_support(cb.message, user)
+
+
+@router.callback_query(F.data == "sup:close")
+async def support_close_cb(cb: CallbackQuery, user: User):
+    await support.set_state(user.id, None)
+    await cb.answer()
+    await cb.message.edit_reply_markup(reply_markup=None)
+    await say(cb.message, t("support_closed", user.lang))
+
+
+@router.message(Command("cancel"))
+async def support_cancel(message: Message, user: User):
+    state = await support.get_state(user.id)
+    await support.set_state(user.id, None)
+    key = "support_closed" if state and state.mode == "chat" else "sup_cancelled"
+    await say(message, t(key, user.lang))
+
+
+@router.callback_query(F.data.startswith("sup:reply:"))
+async def support_reply_cb(cb: CallbackQuery, user: User):
+    if not users.is_admin(user):
+        await cb.answer()
+        return
+    student_id = int(cb.data.rsplit(":", 1)[1])
+    student = await users.get(student_id)
+    await support.set_state(user.id, "reply", student_id)
+    await cb.answer()
+    name = rich.esc(student.first_name if student else str(student_id))
+    await rich.send(cb.message.bot, cb.message.chat.id, t("sup_reply_prompt", user.lang, name=name))
+
+
+class AdminReplying(Filter):
+    """An admin answering a student: native reply to a relayed card, or after "↩️ Javob berish"."""
+
+    async def __call__(self, message: Message, user: User) -> bool | dict:
+        if not users.is_admin(user) or (message.text or "").startswith("/"):
+            return False
+        if message.reply_to_message:
+            target = await support.relay_target(user.id, message.reply_to_message.message_id)
+            if target:
+                return {"student_id": target}
+        state = await support.get_state(user.id)
+        if state and state.mode == "reply" and state.target_user_id:
+            return {"student_id": state.target_user_id}
+        return False
+
+
+class InSupportChat(Filter):
+    async def __call__(self, message: Message, user: User) -> bool:
+        if (message.text or "").startswith("/"):
+            return False
+        state = await support.get_state(user.id)
+        return bool(state and state.mode == "chat")
+
+
+@router.message(AdminReplying())
+async def support_admin_answer(message: Message, user: User, student_id: int):
+    text = message.text or message.caption or ""
+    if not text.strip():
+        await say(message, t("support_text_only", user.lang))
+        return
+    await support.from_admin(message.bot, user, student_id, text)
+    await support.set_state(user.id, None)  # one reply per tap; native replies need no state
+    student = await users.get(student_id)
+    await say(message, t("sup_delivered", user.lang, name=student.first_name if student else student_id))
+
+
+@router.message(InSupportChat())
+async def support_student_message(message: Message, user: User):
+    text = message.text or message.caption or ""
+    if message.photo:
+        text = ("🖼 " + text).strip()
+    elif not text.strip():
+        await say(message, t("support_text_only", user.lang))
+        return
+    await support.from_student(message.bot, user, text)
+    if message.photo:  # the picture itself goes to admins too
+        for admin_id in await users.admin_ids():
+            if admin_id != user.id:
+                try:
+                    await message.copy_to(admin_id)
+                except Exception:  # noqa: BLE001
+                    pass
+    try:
+        await message.react([ReactionTypeEmoji(emoji="👌")])
+    except Exception:  # noqa: BLE001  (reactions may be unavailable → say it in words)
+        await say(message, t("support_sent", user.lang))
 
 
 @router.message(F.text.func(lambda s: bool(EXPORT_RE.search(s))))
@@ -164,25 +289,26 @@ async def link_from_chat(message: Message, user: User):
     try:
         n = await linking.link_ical(user.id, url)
     except IcalUrlError as e:
-        await message.answer(t(f"err_{e.args[0]}", user.lang))
+        await say(message, t(f"err_{e.args[0]}", user.lang))
         return
     except httpx.HTTPError:
-        await message.answer(t("err_network", user.lang))
+        await say(message, t("err_network", user.lang))
         return
     try:
         await message.delete()  # the link contains a private token
     except Exception:  # noqa: BLE001
         pass
-    await message.answer(t("linked_ok", user.lang, n=n), reply_markup=open_app_kb(user.lang, "deadlines"))
+    await say(message, t("linked_ok", user.lang, n=n), open_app_kb(user.lang, "deadlines"))
 
 
 @router.message(F.text.in_(_texts("btn_ai")))
 @router.message(Command("ai"))
 async def ai_intro(message: Message, user: User):
+    await support.set_state(user.id, None)
     kb = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=t("btn_new_chat", user.lang), callback_data="ai:new")]]
     )
-    await message.answer(t("ai_intro", user.lang), reply_markup=kb)
+    await say(message, t("ai_intro", user.lang), kb)
 
 
 async def _clear_chat(user_id: int) -> None:
@@ -193,15 +319,16 @@ async def _clear_chat(user_id: int) -> None:
 
 @router.message(Command("new"))
 async def ai_new(message: Message, user: User):
+    await support.set_state(user.id, None)
     await _clear_chat(user.id)
-    await message.answer(t("ai_new", user.lang))
+    await say(message, t("ai_new", user.lang))
 
 
 @router.callback_query(F.data == "ai:new")
 async def ai_new_cb(cb: CallbackQuery, user: User):
     await _clear_chat(user.id)
     await cb.answer()
-    await cb.message.answer(t("ai_new", user.lang))
+    await say(cb.message, t("ai_new", user.lang))
 
 
 AI_ERRORS = {"disabled": "ai_disabled", "limit": "ai_limit", "busy": "ai_busy", "unsupported": "unsupported_file"}
@@ -215,7 +342,7 @@ async def _answer_ai(message: Message, user: User, text: str, media: list | None
             message.bot, message.chat.id, ai.ask_stream(user, text, media), thinking=t("thinking", user.lang)
         )
     except ai.AIUnavailable as e:
-        await message.answer(t(AI_ERRORS.get(e.code, "ai_error"), user.lang))
+        await say(message, t(AI_ERRORS.get(e.code, "ai_error"), user.lang))
         return
     await rich.send(message.bot, message.chat.id, answer.strip() or "…")
     # Asked by voice → also answer by voice (text first, so nobody waits for the audio)
@@ -261,15 +388,15 @@ def media_spec(message: Message) -> tuple[str, str, str, int, int] | None:
 async def ai_media(message: Message, user: User):
     spec = media_spec(message)
     if spec is None:
-        await message.answer(t("unsupported_file", user.lang))
+        await say(message, t("unsupported_file", user.lang))
         return
     kind, mime, file_id, size, duration = spec
     limit = get_settings().ai_max_voice_sec
     if kind == "audio" and duration > limit:
-        await message.answer(t("voice_too_long", user.lang, n=limit // 60))
+        await say(message, t("voice_too_long", user.lang, n=limit // 60))
         return
     if size > MAX_FILE:
-        await message.answer(t("file_too_big", user.lang))
+        await say(message, t("file_too_big", user.lang))
         return
     await message.bot.send_chat_action(
         message.chat.id, ChatAction.RECORD_VOICE if kind == "audio" else ChatAction.TYPING
@@ -282,7 +409,7 @@ async def ai_media(message: Message, user: User):
 
 @router.message()
 async def non_text(message: Message, user: User):
-    await message.answer(t("unsupported_file", user.lang))
+    await say(message, t("unsupported_file", user.lang))
 
 
 def split_message(text: str, limit: int = 3500) -> list[str]:

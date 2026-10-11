@@ -92,6 +92,9 @@ UW.setDict({
   ai_error: { uz: "AI javob bera olmadi", ru: "ИИ не смог ответить", en: "The AI couldn't answer" },
   clear_q: { uz: "Suhbat tarixini o'chirasizmi?", ru: "Очистить историю чата?", en: "Clear chat history?" },
 
+  sup_ph: { uz: "Adminga xabar…", ru: "Сообщение админу…", en: "Message the admin…" },
+  sup_empty: { uz: "Savol, taklif yoki muammoingizni yozing — admin shu yerda javob beradi.", ru: "Напишите вопрос, предложение или проблему — админ ответит здесь.", en: "Write your question, idea or problem — an admin will answer here." },
+  sup_failed: { uz: "Yuborilmadi, qayta urinib ko'ring", ru: "Не отправлено, попробуйте ещё раз", en: "Not sent, please try again" },
   settings: { uz: "Sozlamalar", ru: "Настройки", en: "Settings" },
   language: { uz: "Til", ru: "Язык", en: "Language" },
   reminders: { uz: "Eslatmalar", ru: "Напоминания", en: "Reminders" },

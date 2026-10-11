@@ -102,6 +102,26 @@
       <div class="stack" id="bc-history"></div>
     </section>
 
+    <!-- ============ STUDENT CHATS ============ -->
+    <section class="page" id="page-chat">
+      <div id="inbox">
+        <header class="header"><div class="grow"><h1 data-i18n="chats">Murojaatlar</h1><div class="sub" id="inbox-sub"></div></div></header>
+        <div class="glass list" id="inbox-list"></div>
+      </div>
+      <div id="thread" class="hidden">
+        <header class="chat-head glass strong">
+          <button class="icon-btn back" id="thread-back" aria-label="Back">‹</button>
+          <div class="avatar" id="thread-avatar"></div>
+          <div class="grow"><div class="chat-title" id="thread-name"></div><div class="muted small" id="thread-meta"></div></div>
+        </header>
+        <div id="thread-list" class="sup-list"></div>
+        <form class="composer glass strong" id="thread-form">
+          <textarea id="thread-input" rows="1" data-i18n-ph="reply_ph" maxlength="3500"></textarea>
+          <button class="send" id="thread-send" aria-label="Send"></button>
+        </form>
+      </div>
+    </section>
+
     <!-- ============ AI / KNOWLEDGE ============ -->
     <section class="page" id="page-ai">
       <header class="header">
@@ -153,6 +173,7 @@
     <button data-page="dash" class="active"><span data-icon="home"></span><span data-i18n="t_dash">Asosiy</span></button>
     <button data-page="users"><span data-icon="users"></span><span data-i18n="t_users">Userlar</span></button>
     <button data-page="bc"><span data-icon="megaphone"></span><span data-i18n="t_bc">Xabar</span></button>
+    <button data-page="chat"><span data-icon="chat"></span><span class="tab-badge hidden" id="chat-badge"></span><span data-i18n="t_chat">Chat</span></button>
     <button data-page="ai"><span data-icon="brain"></span><span data-i18n="t_ai">AI</span></button>
     <button data-page="set"><span data-icon="gear"></span><span data-i18n="t_set">Sozlama</span></button>
   </nav>

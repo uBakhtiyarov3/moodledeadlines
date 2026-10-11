@@ -4,9 +4,9 @@ LANGS = ("uz", "ru", "en")
 
 T: dict[str, dict[str, str]] = {
     "choose_lang": {
-        "uz": "🌐 Tilni tanlang",
-        "ru": "🌐 Выберите язык",
-        "en": "🌐 Choose your language",
+        "uz": "### 🌐 Tilni tanlang\n\nВыберите язык · Choose your language",
+        "ru": "### 🌐 Выберите язык\n\nTilni tanlang · Choose your language",
+        "en": "### 🌐 Choose your language\n\nTilni tanlang · Выберите язык",
     },
     "welcome": {
         "uz": "👋 Salom, <b>{name}</b>!\n\nMen <b>UWED Pulse</b> botiman:\n"
@@ -49,8 +49,59 @@ T: dict[str, dict[str, str]] = {
         "ru": "🔴 меньше 6 ч · 🟠 сегодня-завтра · 🟢 есть время",
         "en": "🔴 under 6 h · 🟠 within a day · 🟢 plenty of time",
     },
+    "btn_support": {"uz": "💬 Admin bilan chat", "ru": "💬 Чат с админом", "en": "💬 Chat with admin"},
+    "support_intro": {
+        "uz": "### 💬 Admin bilan chat\n\nSavol, taklif yoki muammoingizni yozing — admin shu yerda javob beradi.\n\n"
+        "- ✍️ Matn yoki 🖼 rasm yuborishingiz mumkin\n"
+        "- 🔒 Chat ochiq turganda xabarlaringiz AI'ga emas, faqat adminga boradi\n\n"
+        "<sub>Tugatish uchun «✖️ Chatni yopish» tugmasini bosing.</sub>",
+        "ru": "### 💬 Чат с админом\n\nНапишите вопрос, предложение или проблему — админ ответит здесь.\n\n"
+        "- ✍️ Можно отправлять текст или 🖼 фото\n"
+        "- 🔒 Пока чат открыт, сообщения идут не ИИ, а только админу\n\n"
+        "<sub>Чтобы завершить, нажмите «✖️ Закрыть чат».</sub>",
+        "en": "### 💬 Chat with admin\n\nWrite your question, idea or problem — an admin will answer right here.\n\n"
+        "- ✍️ You can send text or a 🖼 photo\n"
+        "- 🔒 While the chat is open, your messages go to the admin, not the AI\n\n"
+        "<sub>Tap «✖️ Close chat» to finish.</sub>",
+    },
+    "support_btn_close": {"uz": "✖️ Chatni yopish", "ru": "✖️ Закрыть чат", "en": "✖️ Close chat"},
+    "support_btn_answer": {"uz": "✍️ Javob yozish", "ru": "✍️ Ответить", "en": "✍️ Reply"},
+    "support_btn_app": {"uz": "💬 Chatni ochish", "ru": "💬 Открыть чат", "en": "💬 Open chat"},
+    "support_reply_hint": {
+        "uz": "Javob yozish uchun «✍️ Javob yozish» tugmasini bosing.",
+        "ru": "Чтобы ответить, нажмите «✍️ Ответить».",
+        "en": "Tap «✍️ Reply» to answer.",
+    },
+    "support_sent": {"uz": "✅ Adminga yuborildi", "ru": "✅ Отправлено админу", "en": "✅ Sent to the admin"},
+    "support_closed": {
+        "uz": "✖️ Admin bilan chat yopildi. Endi savollaringizga yana AI javob beradi.",
+        "ru": "✖️ Чат с админом закрыт. На вопросы снова отвечает ИИ.",
+        "en": "✖️ Admin chat closed. The AI answers your questions again.",
+    },
+    "support_text_only": {
+        "uz": "💬 Admin chatiga matn yoki rasm yuboring.",
+        "ru": "💬 В чат с админом отправьте текст или фото.",
+        "en": "💬 Send text or a photo to the admin chat.",
+    },
+    "sup_reply_prompt": {
+        "uz": "### ✍️ Javob: {name}\n\nKeyingi xabaringiz shu talabaga yuboriladi.\n\n<sub>Bekor qilish: /cancel</sub>",
+        "ru": "### ✍️ Ответ: {name}\n\nСледующее сообщение уйдёт этому студенту.\n\n<sub>Отмена: /cancel</sub>",
+        "en": "### ✍️ Reply to {name}\n\nYour next message goes to this student.\n\n<sub>Cancel: /cancel</sub>",
+    },
+    "sup_delivered": {"uz": "✅ Yuborildi → {name}", "ru": "✅ Отправлено → {name}", "en": "✅ Sent → {name}"},
+    "sup_cancelled": {"uz": "Bekor qilindi.", "ru": "Отменено.", "en": "Cancelled."},
     "thinking": {"uz": "O‘ylayapman…", "ru": "Думаю…", "en": "Thinking…"},
     "open_app": {"uz": "📱 Ilovani ochish", "ru": "📱 Открыть приложение", "en": "📱 Open app"},
+    "open_app_hint": {
+        "uz": "📱 **Ilova** — deadlinelar, sozlamalar va admin bilan chat bir joyda.",
+        "ru": "📱 **Приложение** — дедлайны, настройки и чат с админом в одном месте.",
+        "en": "📱 **The app** — deadlines, settings and admin chat in one place.",
+    },
+    "admin_hint": {
+        "uz": "### 🛠 Admin panel\n\nStatistika, foydalanuvchilar, xabar yuborish, murojaatlar va AI bilim bazasi.",
+        "ru": "### 🛠 Админ-панель\n\nСтатистика, пользователи, рассылки, обращения и база знаний ИИ.",
+        "en": "### 🛠 Admin panel\n\nStats, users, broadcasts, student chats and the AI knowledge base.",
+    },
     "open_settings": {"uz": "⚙️ Sozlamalarni ochish", "ru": "⚙️ Открыть настройки", "en": "⚙️ Open settings"},
     "settings_hint": {
         "uz": "⚙️ Eslatmalar vaqti, til, fanlar va Moodle ulanishi — barchasi shu yerda:",
@@ -64,17 +115,32 @@ T: dict[str, dict[str, str]] = {
     "btn_lang": {"uz": "🌐 Til", "ru": "🌐 Язык", "en": "🌐 Language"},
     "lang_set": {"uz": "✅ Til o'zgartirildi", "ru": "✅ Язык изменён", "en": "✅ Language updated"},
     "connect_hint": {
-        "uz": "🔗 Moodle hali ulanmagan. Ilovada <b>Moodle'ni ulash</b> bo'limida qadam-baqadam ko'rsatma bor.\n"
-        "Yoki <code>export_execute.php</code> linkini shu yerga yuboring.",
-        "ru": "🔗 Moodle ещё не подключён. В приложении есть пошаговая инструкция <b>Подключить Moodle</b>.\n"
-        "Или просто пришлите сюда ссылку <code>export_execute.php</code>.",
-        "en": "🔗 Moodle isn't connected yet. The app has a step-by-step <b>Connect Moodle</b> guide.\n"
-        "Or just send the <code>export_execute.php</code> link here.",
+        "uz": "### 🔗 Moodle hali ulanmagan\n\nDeadlinelarni kuzatishim uchun Moodle kalendaringizni ulang:\n\n"
+        "1. **Ilovani oching** — pastdagi tugma, qadam-baqadam ko'rsatma bor\n"
+        "2. Yoki `export_execute.php` linkini shu chatga yuboring\n\n"
+        "<sub>🔒 Parol kerak emas — link faqat kalendarni o'qiydi.</sub>",
+        "ru": "### 🔗 Moodle ещё не подключён\n\nЧтобы я следил за дедлайнами, подключите календарь Moodle:\n\n"
+        "1. **Откройте приложение** — кнопка ниже, там пошаговая инструкция\n"
+        "2. Или пришлите в этот чат ссылку `export_execute.php`\n\n"
+        "<sub>🔒 Пароль не нужен — ссылка даёт доступ только к календарю.</sub>",
+        "en": "### 🔗 Moodle isn't connected yet\n\nConnect your Moodle calendar so I can track deadlines:\n\n"
+        "1. **Open the app** — button below, with a step-by-step guide\n"
+        "2. Or send the `export_execute.php` link to this chat\n\n"
+        "<sub>🔒 No password needed — the link only reads your calendar.</sub>",
     },
     "linked_ok": {
-        "uz": "✅ Moodle ulandi! <b>{n}</b> ta yaqin deadline topildi. Eslatmalar avtomatik yoqildi.",
-        "ru": "✅ Moodle подключён! Найдено дедлайнов: <b>{n}</b>. Напоминания включены.",
-        "en": "✅ Moodle connected! Found <b>{n}</b> upcoming deadlines. Reminders are on.",
+        "uz": "### ✅ Moodle ulandi!\n\nTopilgan yaqin deadlinelar: **{n}** ta.\n\n"
+        "- 🔔 Eslatmalar avtomatik yoqildi (3 kun → 1 soat oldin)\n"
+        "- ⚙️ Vaqtlarni ilovadagi **Sozlamalar**da o'zgartirasiz\n"
+        "- 📋 Ro'yxat: /deadlines",
+        "ru": "### ✅ Moodle подключён!\n\nНайдено ближайших дедлайнов: **{n}**.\n\n"
+        "- 🔔 Напоминания включены автоматически (от 3 дней до 1 часа)\n"
+        "- ⚙️ Время меняется в **Настройках** приложения\n"
+        "- 📋 Список: /deadlines",
+        "en": "### ✅ Moodle connected!\n\nUpcoming deadlines found: **{n}**.\n\n"
+        "- 🔔 Reminders are on automatically (3 days → 1 hour before)\n"
+        "- ⚙️ Change the times in the app's **Settings**\n"
+        "- 📋 List: /deadlines",
     },
     "err_wrong_host": {
         "uz": "❌ Bu link moodle.uwed.uz ga tegishli emas.",
@@ -102,9 +168,9 @@ T: dict[str, dict[str, str]] = {
         "en": "⚠️ Moodle isn't responding right now. Please try again later.",
     },
     "no_deadlines": {
-        "uz": "🎉 Yaqin deadlinelar yo'q. Dam oling!",
-        "ru": "🎉 Ближайших дедлайнов нет. Отдыхайте!",
-        "en": "🎉 No upcoming deadlines. Enjoy!",
+        "uz": "### 🎉 Yaqin deadlinelar yo'q\n\nHamma vazifalar joyida — dam oling! Yangi vazifa paydo bo'lsa, o'zim xabar beraman.",
+        "ru": "### 🎉 Ближайших дедлайнов нет\n\nВсё под контролем — отдыхайте! Появится новое задание — сообщу.",
+        "en": "### 🎉 No upcoming deadlines\n\nAll clear — enjoy! I'll tell you when a new task appears.",
     },
     "deadlines_head": {
         "uz": "⏰ <b>Yaqin deadlinelar</b>",
@@ -114,9 +180,9 @@ T: dict[str, dict[str, str]] = {
     "btn_done": {"uz": "✅ Bajardim", "ru": "✅ Сделано", "en": "✅ Done"},
     "btn_open_moodle": {"uz": "🔗 Moodle'da ochish", "ru": "🔗 Открыть в Moodle", "en": "🔗 Open in Moodle"},
     "marked_done": {
-        "uz": "✅ Ajoyib! Bu vazifa bo'yicha boshqa eslatma bo'lmaydi.",
-        "ru": "✅ Отлично! Напоминаний по этому заданию больше не будет.",
-        "en": "✅ Great! No more reminders for this task.",
+        "uz": "✅ **Ajoyib!** Bu vazifa bo'yicha boshqa eslatma bo'lmaydi.",
+        "ru": "✅ **Отлично!** Напоминаний по этому заданию больше не будет.",
+        "en": "✅ **Great!** No more reminders for this task.",
     },
     "ai_intro": {
         "uz": "🤖 <b>UWED Pulse AI</b>\n\nShu yerga yozing yoki 🎤 ovozli xabar yuboring — UWED, o'qish, Moodle yoki "
@@ -186,14 +252,14 @@ T: dict[str, dict[str, str]] = {
         "en": "⚠️ The AI couldn't answer right now. Please try later.",
     },
     "banned": {
-        "uz": "⛔ Sizning hisobingiz bloklangan.",
-        "ru": "⛔ Ваш аккаунт заблокирован.",
-        "en": "⛔ Your account is blocked.",
+        "uz": "### ⛔ Hisob bloklangan\n\nSavollar bo'lsa, dekanatga murojaat qiling.",
+        "ru": "### ⛔ Аккаунт заблокирован\n\nПо вопросам обратитесь в деканат.",
+        "en": "### ⛔ Account blocked\n\nPlease contact the dean's office if you have questions.",
     },
     "maintenance": {
-        "uz": "🛠 Botda texnik ishlar olib borilmoqda. Tez orada qaytamiz!",
-        "ru": "🛠 Идут технические работы. Скоро вернёмся!",
-        "en": "🛠 Maintenance in progress. We'll be back soon!",
+        "uz": "### 🛠 Texnik ishlar\n\nBotni yaxshilayapmiz — tez orada qaytamiz!",
+        "ru": "### 🛠 Технические работы\n\nУлучшаем бота — скоро вернёмся!",
+        "en": "### 🛠 Maintenance\n\nWe're improving the bot — back soon!",
     },
     "left": {"uz": "Qoldi", "ru": "Осталось", "en": "Left"},
 }

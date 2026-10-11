@@ -9,7 +9,7 @@ from app.api.deps import admin_user, bot
 from app.api.student import user_out
 from app.db import Session
 from app.models import Broadcast, ChatMessage, Deadline, KnowledgeDoc, ReminderLog, User, utcnow
-from app.services import ai, kb
+from app.services import ai, kb, support, users
 from app.services import broadcast as bc
 from app.services import settings as rt
 from app.services.tg_html import markdown_to_tg, sanitize
@@ -58,6 +58,7 @@ async def stats():
         "new_day": new_day, "blocked": blocked, "upcoming_deadlines": upcoming,
         "reminders_day": reminders_day, "ai_questions_day": ai_day, "langs": langs,
         "growth": [{"day": k, "n": v} for k, v in series.items()], "kb": kb.stats(),
+        "support_unread": await support.unread_total_for_admins(),
     }
 
 
@@ -304,3 +305,40 @@ async def ai_test(body: AskIn, me: User = Depends(admin_user)):
         "html": markdown_to_tg(answer),
         "sources": [{"title": h.doc_title, "excerpt": h.text[:200]} for h in hits],
     }
+
+
+# ---------------------------------------------------------------- student chats
+
+@router.get("/support")
+async def support_inbox():
+    return {"items": await support.threads(), "unread": await support.unread_total_for_admins()}
+
+
+@router.get("/support/{uid}")
+async def support_thread(uid: int, after: int = 0):
+    from app.api.student import support_out
+
+    u = await users.get(uid)
+    if not u:
+        raise HTTPException(404)
+    msgs = [m for m in await support.thread(uid) if m.id > after]
+    await support.mark_read(uid, by_admin=True)
+    return {
+        "user": {"id": u.id, "first_name": u.first_name, "username": u.username, "lang": u.lang,
+                 "linked": bool(u.ical_url_enc)},
+        "items": [support_out(m) for m in msgs],
+    }
+
+
+class SupportReply(BaseModel):
+    text: str = Field(min_length=1, max_length=3500)
+
+
+@router.post("/support/{uid}")
+async def support_reply(uid: int, body: SupportReply, me: User = Depends(admin_user), b=Depends(bot)):
+    from app.api.student import support_out
+
+    if not await users.get(uid):
+        raise HTTPException(404)
+    m = await support.from_admin(b, me, uid, body.text.strip())
+    return support_out(m)

@@ -4,7 +4,9 @@ import asyncio
 import logging
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramRetryAfter
+from aiogram.methods import SendRichMessage
+from aiogram.types import InputRichMessage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import Select, select
 
@@ -29,14 +31,17 @@ def segment_query(segment: dict) -> Select:
 
 def markup(button_text: str | None, button_url: str | None) -> InlineKeyboardMarkup | None:
     if button_text and button_url:
-        return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=button_text, url=button_url)]])
+        return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=button_text, url=button_url, style="primary")]])
     return None
 
 
 async def send_one(bot: Bot, chat_id: int, html: str, kb) -> bool:
     for _ in range(3):
         try:
-            await bot.send_message(chat_id, html, reply_markup=kb, disable_web_page_preview=False)
+            try:  # rich message (Bot API 10.x); classic HTML if this chat/client can't take it
+                await bot(SendRichMessage(chat_id=chat_id, rich_message=InputRichMessage(html=html), reply_markup=kb))
+            except TelegramBadRequest:
+                await bot.send_message(chat_id, html, reply_markup=kb, disable_web_page_preview=False)
             return True
         except TelegramRetryAfter as e:
             await asyncio.sleep(e.retry_after + 1)

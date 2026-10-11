@@ -154,3 +154,41 @@ class Setting(Base):
 
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[dict | list | str | int | bool | None] = mapped_column(JSON)
+
+
+class SupportMessage(Base):
+    """Student ↔ admin conversation (one thread per student)."""
+
+    __tablename__ = "support_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    from_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    admin_id: Mapped[int | None] = mapped_column(BigInteger)
+    text: Mapped[str] = mapped_column(Text)
+    # read by the other side (student reads admin messages and vice versa)
+    read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
+
+
+class SupportState(Base):
+    """Who is "talking to admin" right now (students) / replying to whom (admins)."""
+
+    __tablename__ = "support_state"
+
+    user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    mode: Mapped[str] = mapped_column(String(16))  # "chat" (student) | "reply" (admin)
+    target_user_id: Mapped[int | None] = mapped_column(BigInteger)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class SupportRelay(Base):
+    """Maps a student message delivered to an admin's chat → the student, for native replies."""
+
+    __tablename__ = "support_relay"
+    __table_args__ = (UniqueConstraint("admin_id", "message_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    admin_id: Mapped[int] = mapped_column(BigInteger)
+    message_id: Mapped[int] = mapped_column(Integer)
+    user_id: Mapped[int] = mapped_column(BigInteger)

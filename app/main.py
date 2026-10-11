@@ -33,9 +33,9 @@ WEB = Path(__file__).resolve().parent.parent / "webapp"
 
 async def setup_bot(bot: Bot) -> None:
     for lang, cmds in {
-        None: [("start", "Start"), ("deadlines", "Upcoming deadlines"), ("ai", "AI assistant"), ("new", "New AI chat"), ("lang", "Language")],
-        "uz": [("start", "Boshlash"), ("deadlines", "Yaqin deadlinelar"), ("ai", "AI yordamchi"), ("new", "Yangi AI suhbat"), ("lang", "Til")],
-        "ru": [("start", "Старт"), ("deadlines", "Ближайшие дедлайны"), ("ai", "ИИ-помощник"), ("new", "Новый разговор с ИИ"), ("lang", "Язык")],
+        None: [("start", "Start"), ("deadlines", "Upcoming deadlines"), ("ai", "AI assistant"), ("new", "New AI chat"), ("support", "Chat with admin"), ("lang", "Language")],
+        "uz": [("start", "Boshlash"), ("deadlines", "Yaqin deadlinelar"), ("ai", "AI yordamchi"), ("new", "Yangi AI suhbat"), ("support", "Admin bilan chat"), ("lang", "Til")],
+        "ru": [("start", "Старт"), ("deadlines", "Ближайшие дедлайны"), ("ai", "ИИ-помощник"), ("new", "Новый разговор с ИИ"), ("support", "Чат с админом"), ("lang", "Язык")],
     }.items():
         await bot.set_my_commands([BotCommand(command=c, description=d) for c, d in cmds], language_code=lang)
     if settings.public_url.startswith("https://"):

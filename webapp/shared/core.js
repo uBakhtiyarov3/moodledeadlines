@@ -150,9 +150,19 @@
     users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3"/></svg>',
     megaphone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 11v2a2 2 0 0 0 2 2h2l6 4V5L7 9H5a2 2 0 0 0-2 2z"/><path d="M17 8a5 5 0 0 1 0 8"/></svg>',
     brain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5a3 3 0 1 0-5.9.8A3 3 0 0 0 4 11a3 3 0 0 0 1.5 5.4A3 3 0 0 0 12 18z"/><path d="M12 5a3 3 0 1 1 5.9.8A3 3 0 0 1 20 11a3 3 0 0 1-1.5 5.4A3 3 0 0 1 12 18z"/></svg>',
+    headset: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/><path d="M21 19a3 3 0 0 1-3 3h-4"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg>',
   };
 
-  window.UW = { tg, api, fmt, ApiError, t, setLang, translate, get lang() { return lang; }, setDict: (d) => (dict = d),
+  // Section to open on start. Telegram appends its own #tgWebAppData=… to the URL hash,
+  // so sections travel in the query string (?p=settings); a plain #hash is a fallback.
+  function startPage() {
+    const q = params.get("p");
+    if (q) return q;
+    const h = location.hash.replace(/^#/, "").split("&")[0];
+    return h.includes("=") ? "" : h;
+  }
+
+  window.UW = { tg, api, fmt, startPage, ApiError, t, setLang, translate, get lang() { return lang; }, setDict: (d) => (dict = d),
     $, $$, esc, haptic, toast, openSheet, closeSheet, confirmDialog, revealSpoilers, openLink, I };
 })();

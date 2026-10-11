@@ -44,6 +44,7 @@
     const tab = page === "connect" ? "deadlines" : page;
     $$("#dock button").forEach((b) => b.classList.toggle("active", b.dataset.page === tab));
     if (page === "ai") loadChat();
+    if (page === "support") openSupport(); else stopSupport();
     window.scrollTo({ top: 0 });
   }
   $$("#dock button").forEach((b) => (b.onclick = () => { haptic("select"); show(b.dataset.page); }));
@@ -295,6 +296,79 @@
     chatLoaded = false; loadChat();
   };
 
+  // ---------- chat with admin ----------
+  let supItems = [];
+  let supTimer = null;
+  function supDay(d) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const x = new Date(d); x.setHours(0, 0, 0, 0);
+    const diff = Math.round((today - x) / 864e5);
+    return diff === 0 ? t("today") : UW.fmt.day(d);
+  }
+  function renderSupport(scroll) {
+    const box = $("#sup-list");
+    if (!supItems.length) {
+      box.innerHTML = `<div class="sup-empty"><div class="art">💬</div>${esc(t("sup_empty"))}</div>`;
+      return;
+    }
+    let html = "", lastDay = "";
+    supItems.forEach((m) => {
+      const at = new Date(m.at);
+      const day = supDay(at);
+      if (day !== lastDay) { html += `<div class="sup-day">${esc(day)}</div>`; lastDay = day; }
+      const mine = !m.from_admin;
+      const tick = mine ? `<span class="tick">${m.pending ? "🕓" : m.read ? "✓✓" : "✓"}</span>` : "";
+      html += `<div class="bubble ${mine ? "me" : ""}">${esc(m.text)}<span class="meta">${UW.fmt.time(at)}${tick}</span></div>`;
+    });
+    const atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 80;
+    box.innerHTML = html;
+    if (scroll || atBottom) window.scrollTo({ top: document.body.scrollHeight, behavior: scroll === "smooth" ? "smooth" : "auto" });
+  }
+  async function loadSupport(scroll) {
+    try {
+      const r = await api("/api/support");
+      const changed = JSON.stringify(r.items) !== JSON.stringify(supItems.filter((m) => !m.pending));
+      if (changed) {
+        const hadNewAdmin = r.items.length > supItems.length && r.items[r.items.length - 1]?.from_admin;
+        supItems = r.items;
+        renderSupport(scroll);
+        if (hadNewAdmin && !scroll) haptic("success");
+      }
+      setSupBadge(0);
+    } catch (e) { if (scroll) toast(errText(e), "error"); }
+  }
+  function openSupport() {
+    loadSupport(true);
+    clearInterval(supTimer);
+    supTimer = setInterval(() => loadSupport(false), 4000);
+  }
+  function stopSupport() { clearInterval(supTimer); supTimer = null; }
+  function setSupBadge(n) {
+    const b = $("#sup-badge");
+    b.textContent = n > 9 ? "9+" : String(n);
+    b.classList.toggle("hidden", !n);
+  }
+  async function sendSupport() {
+    const input = $("#sup-input");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = ""; input.style.height = "";
+    const temp = { id: -Date.now(), from_admin: false, text, at: new Date().toISOString(), pending: true };
+    supItems.push(temp); renderSupport("smooth"); haptic("light");
+    try {
+      const m = await api("/api/support", { body: { text } });
+      Object.assign(temp, m, { pending: false });
+      renderSupport(false);
+    } catch (e) {
+      supItems = supItems.filter((x) => x !== temp); renderSupport(false);
+      input.value = text; toast(t("sup_failed"), "error");
+    }
+  }
+  $("#sup-send").innerHTML = I.send;
+  $("#sup-form").onsubmit = (e) => { e.preventDefault(); sendSupport(); };
+  $("#sup-input").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; });
+  $("#sup-input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !("ontouchstart" in window)) { e.preventDefault(); sendSupport(); } });
+
   // ---------- settings ----------
   async function save(patch) {
     try { me = await api("/api/me", { method: "PATCH", body: patch }); haptic("select"); }
@@ -396,8 +470,9 @@
     }
     UW.setLang(me.lang);
     renderSync(); renderSettings();
-    const hash = location.hash.replace("#", "");
-    show(["ai", "settings", "connect"].includes(hash) ? hash : "deadlines");
+    const start = UW.startPage();
+    show(["ai", "settings", "connect", "support", "deadlines"].includes(start) ? start : "deadlines");
+    setSupBadge(me.support_unread || 0);
     if (me.linked) loadDeadlines();
     setInterval(() => { if (scope === "upcoming") { renderHero(); renderList(); } }, 30000);
   }

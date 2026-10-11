@@ -9,6 +9,8 @@ UWED talabalari uchun Telegram bot + Mini App:
 - 🤖 **AI yordamchi (repetitor)** — Google Gemini (bepul tarif): matn, 🎤 ovozli xabar, 🖼 rasm va 📄 PDF'ni
   o'zbek/rus/ingliz tilida tushunadi. Telegram chatning o'zida (`/new` — yangi mavzu) va Mini App'da (📎 bilan)
   ishlaydi; admin to'ldiradigan bilim bazasiga tayanadi. Kerak bo'lsa Claude (Amazon Bedrock) ga bir qator bilan o'tadi.
+- 💬 **Admin bilan chat** — botdagi tugma yoki Mini App'dagi "Admin" bo'limi (shaxsiy chat ko'rinishida);
+  admin Telegram'da rich karta oladi va reply/«↩️ Javob berish» yoki admin paneldagi «Chat» orqali javob beradi.
 - 🛠 **Admin panel** (alohida Mini App) — statistika, foydalanuvchilar, rich-text xabar yuborish,
   AI bilim bazasi, sozlamalar.
 - ✨ **Telegram Rich Messages** (Bot API 10.x): AI javoblari sarlavha, jadval, ro'yxat, formula bilan va

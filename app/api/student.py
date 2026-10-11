@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 
-from app.api.deps import current_user
+from app.api.deps import bot, current_user
 from app.db import Session
 from app.i18n import LANGS
 from app.models import ChatMessage, Deadline, User
 from app.moodle import ws
 from app.moodle.ical import IcalUrlError
-from app.services import ai, linking, users
+from app.services import ai, linking, support, users
 from app.services import settings as rt
 from app.services.sync import sync_user
 from app.services.tg_html import markdown_to_tg
@@ -55,7 +55,7 @@ def deadline_out(d: Deadline) -> dict:
 
 @router.get("/me")
 async def me(user: User = Depends(current_user)):
-    return user_out(user)
+    return {**user_out(user), "support_unread": await support.unread_for_student(user.id)}
 
 
 class Prefs(BaseModel):
@@ -212,3 +212,28 @@ async def clear_history(user: User = Depends(current_user)):
         await s.execute(delete(ChatMessage).where(ChatMessage.user_id == user.id))
         await s.commit()
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- chat with admin
+
+def support_out(m) -> dict:
+    return {"id": m.id, "from_admin": m.from_admin, "text": m.text, "at": m.created_at.isoformat(), "read": m.read}
+
+
+@router.get("/support")
+async def support_thread(after: int = 0, user: User = Depends(current_user)):
+    msgs = [m for m in await support.thread(user.id) if m.id > after]
+    await support.mark_read(user.id, by_admin=False)
+    return {"items": [support_out(m) for m in msgs]}
+
+
+class SupportIn(BaseModel):
+    text: str = Field(min_length=1, max_length=support.MAX_LEN)
+
+
+@router.post("/support")
+async def support_send(body: SupportIn, user: User = Depends(current_user), b=Depends(bot)):
+    if not body.text.strip():
+        raise HTTPException(400, "empty")
+    m = await support.from_student(b, user, body.text.strip())
+    return support_out(m)

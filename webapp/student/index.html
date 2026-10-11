@@ -117,6 +117,19 @@
       </form>
     </section>
 
+    <!-- ============ CHAT WITH ADMIN ============ -->
+    <section class="page" id="page-support">
+      <header class="chat-head glass strong">
+        <div class="chat-avatar" data-icon="headset"></div>
+        <div class="chat-title">Admin</div>
+      </header>
+      <div id="sup-list" class="sup-list"></div>
+      <form class="composer glass strong" id="sup-form">
+        <textarea id="sup-input" rows="1" data-i18n-ph="sup_ph" maxlength="3500"></textarea>
+        <button class="send" id="sup-send" aria-label="Send"></button>
+      </form>
+    </section>
+
     <!-- ============ SETTINGS ============ -->
     <section class="page" id="page-settings">
       <header class="header"><div><h1 data-i18n="settings">Sozlamalar</h1></div></header>
@@ -159,6 +172,7 @@
   <nav class="dock glass strong" id="dock">
     <button data-page="deadlines" class="active"><span data-icon="clock"></span><span data-i18n="tab_deadlines">Deadline</span></button>
     <button data-page="ai"><span data-icon="chat"></span><span data-i18n="tab_ai">AI</span></button>
+    <button data-page="support"><span data-icon="headset"></span><span class="tab-badge hidden" id="sup-badge"></span><span>Admin</span></button>
     <button data-page="settings"><span data-icon="gear"></span><span data-i18n="tab_settings">Sozlamalar</span></button>
   </nav>
 
