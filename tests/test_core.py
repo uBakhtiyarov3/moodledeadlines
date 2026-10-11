@@ -241,3 +241,11 @@ def test_core_prompt_names_no_vendor():
 
     for word in ("Bedrock", "Anthropic", "Claude", "Gemini", "Google", "Amazon"):
         assert word not in CORE_PROMPT
+
+
+def test_tts_sends_only_the_answer():
+    from app.services.tts import request_body
+
+    body = request_body("Salom, talaba!")
+    assert body["contents"] == [{"parts": [{"text": "Salom, talaba!"}]}]  # no instructions to read aloud
+    assert body["generationConfig"]["responseModalities"] == ["AUDIO"]

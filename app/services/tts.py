@@ -51,20 +51,25 @@ async def _to_ogg(wav: bytes) -> bytes:
     return out
 
 
+def request_body(text: str) -> dict:
+    st = get_settings()
+    return {
+        # Only the answer itself: TTS models read any instruction text aloud too
+        "contents": [{"parts": [{"text": text}]}],
+        "generationConfig": {
+            "responseModalities": ["AUDIO"],
+            "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": st.gemini_tts_voice}}},
+        },
+    }
+
+
 async def synthesize(markdown: str) -> bytes | None:
     """Return an OGG/Opus voice note for the answer, or None if anything fails."""
     st = get_settings()
     text = speakable(markdown)
     if not text:
         return None
-    body = {
-        "contents": [{"parts": [{"text": "Read this aloud warmly and clearly, like a friendly tutor, "
-                                          "in the language it is written in:\n\n" + text}]}],
-        "generationConfig": {
-            "responseModalities": ["AUDIO"],
-            "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": st.gemini_tts_voice}}},
-        },
-    }
+    body = request_body(text)
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(60, connect=10)) as c:
             r = await c.post(
