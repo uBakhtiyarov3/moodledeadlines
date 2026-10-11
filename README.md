@@ -1,0 +1,228 @@
+# UWED Student Bot
+
+Talabalar uchun Telegram bot + Mini App:
+
+- ⏰ **Moodle deadlinelari** — `moodle.uwed.uz` kalendar linki orqali avtomatik olinadi va eslatiladi
+  (3 kun, 1 kun, 12, 6, 3, 2, 1 soat qolganda — har birining matni har xil, talaba o'zi tanlaydi).
+- ✅ Bajarilgan vazifa eslatilmaydi: talaba "Bajardim" tugmasini bosadi yoki ixtiyoriy
+  "Avto-bajarildi" rejimida Moodle'ning o'zi aytadi.
+- 🤖 **AI yordamchi** — Amazon Bedrock'dagi Claude Opus 4.5, admin to'ldiradigan bilim bazasiga tayanadi.
+- 🛠 **Admin panel** (alohida Mini App) — statistika, foydalanuvchilar, rich-text xabar yuborish,
+  AI bilim bazasi, sozlamalar.
+- 🌐 O'zbek / Rus / Ingliz. 🎨 Liquid glass dizayn, UWED ranglari (#8a0119 + #123654, oq).
+
+---
+
+## 1. Arxitektura (qisqacha)
+
+```
+Telegram ──polling──► ┌──────────────────── bitta Python jarayon ────────────────────┐
+                      │ aiogram bot  ─┐                                              │
+Mini App (HTTPS) ───► │ FastAPI API  ─┼─► SQLite/Postgres                            │
+  /app   (talaba)     │ Scheduler    ─┘   ├─ har 1 daq: eslatmalar                   │
+  /admin (admin)      │                   └─ har 5 daq: 30 daqiqadan eski userlarni  │
+                      │                       Moodle'dan qayta sinxronlash           │
+                      └──────────► moodle.uwed.uz (iCal / web-service)               │
+                                 └► Amazon Bedrock (Claude Opus 4.5)                 │
+```
+
+| Papka | Nima bor |
+|---|---|
+| `app/bot` | Telegram buyruqlari, tugmalar |
+| `app/api` | Mini App API (`student.py`, `admin.py`) — har so'rov Telegram `initData` HMAC bilan tekshiriladi |
+| `app/moodle` | iCal link tekshiruvi/parser (`ical.py`), ixtiyoriy Moodle akkaunt (`ws.py`) |
+| `app/services` | sinxronlash, eslatma mantiqi, AI, bilim bazasi (BM25 qidiruv), broadcast, HTML sanitizer |
+| `webapp/` | Mini App'lar (build kerak emas): `student/`, `admin/`, umumiy `shared/` |
+| `deploy/` | Caddy (avtomatik HTTPS), server o'rnatish skripti |
+
+### Nega iCal link (A), login-parol (B) emas?
+
+| | **A. Kalendar linki** (asosiy) | **B. Moodle akkaunt** (ixtiyoriy) |
+|---|---|---|
+| Parol | Kerak emas | Bir marta kiritiladi, **saqlanmaydi** — faqat Moodle tokeni shifrlab saqlanadi |
+| Deadlinelar | ✅ | ✅ |
+| Topshirilganini bilish | Talaba "✅ Bajardim" bosadi | **Avtomatik** (`core_calendar_get_action_events_by_timesort`) |
+| Xavf | Link faqat kalendarni o'qiydi | Token akkauntga kengroq ruxsat beradi |
+
+Shuning uchun talaba avval A orqali ulanadi (oson, xavfsiz), xohlasa Sozlamalarda B'ni yoqadi.
+Ikkalasi `moodle.uwed.uz` da ishlashi tekshirildi.
+
+---
+
+## 2. Sizdan kerak bo'ladigan narsalar
+
+1. **Telegram bot tokeni** — @BotFather → `/newbot`.
+2. **Telegram ID'ingiz** (admin bo'lish uchun) — @userinfobot ga yozing.
+3. **AWS IAM kalitlari** (Bedrock uchun) — pastdagi 4-bo'lim. ⚠️ Root akkaunt kalitini ishlatmang.
+4. **Server** — Google Cloud akkaunt (billing ulangan) yoki boshqa VPS.
+
+Kalitlarni chatga yoki GitHub'ga yubormang — faqat serverdagi `.env` fayliga yoziladi.
+
+---
+
+## 3. Telegram bot sozlash (BotFather)
+
+1. `/newbot` → nom: `UWED Student`, username: masalan `uwed_student_bot` → tokenni saqlang.
+2. `/setuserpic` → UWED logotipi.
+3. `/setdescription` → «Moodle deadlinelaringizni eslatadi va UWED haqidagi savollarga javob beradi».
+4. Mini App menyu tugmasi bot ishga tushganda **avtomatik** o'rnatiladi (`PUBLIC_URL` https bo'lsa).
+5. Ixtiyoriy: `/newapp` → Mini App'ni `t.me/uwed_student_bot/app` ko'rinishidagi havola bilan ham ochish
+   (URL: `https://<domen>/app/`).
+
+---
+
+## 4. Amazon Bedrock: Claude Opus 4.5'ni ulash
+
+Siz tanlagan model: **Claude Opus 4.5**, Model ID `anthropic.claude-opus-4-5-20251101-v1:0`,
+*Cross-region inference*. Shuning uchun kodda **inference profile** ishlatiladi:
+
+```
+BEDROCK_MODEL_ID=us.anthropic.claude-opus-4-5-20251101-v1:0
+AWS_REGION=us-east-1
+```
+
+### 4.1 Modelga ruxsat
+1. AWS Console → **Amazon Bedrock** → (region: *US East (N. Virginia)*).
+2. Anthropic modelini birinchi marta ishlatishda **use case** formasi so'raladi
+   (Model catalog → Claude Opus 4.5 → *Open in playground* → forma chiqsa to'ldiring).
+   Playground'da bitta savol yuborib, javob kelishini tekshiring.
+
+### 4.2 Bot uchun alohida IAM foydalanuvchi
+1. **IAM → Users → Create user** → nomi `uwed-bot` (Console access kerak emas).
+2. **Permissions → Create inline policy → JSON**:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+      "Resource": [
+        "arn:aws:bedrock:us-east-1:*:inference-profile/us.anthropic.claude-opus-4-5-20251101-v1:0",
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
+      ]
+    }
+  ]
+}
+```
+
+   (Ikkinchi qator `*` region bilan — cross-region profil so'rovni boshqa US regionlarga ham yo'naltiradi.)
+3. User → **Security credentials → Create access key** → *Application running outside AWS* →
+   `AWS_ACCESS_KEY_ID` va `AWS_SECRET_ACCESS_KEY` ni `.env` ga yozing.
+4. **Billing → Budgets** da oylik limit qo'ying (masalan $20) — xarajat nazorati uchun.
+
+### 4.3 Narx haqida
+Bedrock — **pullik** (token bo'yicha). Opus 4.5 kuchli, lekin qimmatroq model.
+Xarajatni boshqarish: admin panel → Sozlamalar → *Kunlik limit* (default 30 savol/talaba),
+`AI_MAX_TOKENS` (default 1500). Arzonroq variant kerak bo'lsa, faqat `BEDROCK_MODEL_ID` ni
+boshqa Claude modeliga almashtirish yetarli.
+
+---
+
+## 5. AI'ni "o'qitish" — qanday ishlaydi
+
+Model qayta o'qitilmaydi (fine-tuning kerak emas va qimmat). Buning o'rniga **RAG** ishlatiladi:
+
+1. Admin panel → **AI** bo'limi → **＋ Qo'shish** — UWED haqidagi matnni joylang.
+2. Matn bo'laklarga bo'linadi; talaba savol berganda eng mos 4 ta bo'lak topiladi
+   (o'zbek, rus, ingliz tillarida ishlaydigan kalit so'z qidiruvi).
+3. Shu bo'laklar + talabaning yaqin deadlinelari Claude'ga kontekst sifatida beriladi →
+   javob faqat shu ma'lumotga tayanadi, bilmasa "dekanatga murojaat qiling" deydi.
+4. **AI'ni sinash** maydonida savol berib, javob va qaysi manbalar ishlatilganini ko'rasiz.
+
+### Qanday matnlar qo'shish kerak (tavsiya)
+| Hujjat | Misol |
+|---|---|
+| Kontaktlar | dekanatlar, telefonlar, xonalar, ish vaqti |
+| To'lov | kontrakt muddatlari, rekvizitlar, chegirmalar |
+| O'quv jarayoni | semestr sanalari, imtihon/qayta topshirish tartibi, GPA, davomat qoidalari |
+| Moodle FAQ | parolni tiklash, vazifa yuklash, test topshirish |
+| Kampus | kutubxona, yotoqxona, oshxona, klublar |
+| Hujjatlar | ma'lumotnoma olish, akademik ta'til, ko'chish |
+
+Maslahatlar: har bir hujjat — bitta mavzu; sarlavha aniq bo'lsin; savol-javob (FAQ) shakli eng yaxshi
+ishlaydi; eskirgan hujjatni o'chirmasdan **Faol** tugmasini o'chirib qo'ysa bo'ladi.
+Bir hujjatni bir nechta tilda yozish shart emas — Claude talaba tilida javob beradi.
+
+AI xarakterini **Sozlamalar → System prompt** dan o'zgartirasiz.
+
+---
+
+## 6. Hosting: qaysi biri bepul va uzoq muddatli?
+
+| | Narx | Izoh |
+|---|---|---|
+| **Railway** | Doimiy bepul tarif yo'q (trial kredit, keyin Hobby ~$5/oy) | Qulay, lekin pullik |
+| **Google Cloud e2-micro** | VM + 30 GB disk **Always Free** (us-west1 / us-central1 / us-east1) | Tashqi IPv4 manzil uchun ~$3.6/oy olinishi mumkin — billing hisobotida tekshiring |
+| Oracle Cloud Always Free | $0 (ARM VM + public IP) | To'liq bepul variant; ro'yxatdan o'tish qiyinroq |
+
+**Tavsiya:** ikkalasidan **Google Cloud e2-micro** (Railway'dan arzon, doimiy). Loyiha Docker'da,
+shuning uchun xohlagan paytda boshqa serverga 5 daqiqada ko'chadi.
+Bot `polling` rejimida ishlaydi — domen shart emas, HTTPS faqat Mini App uchun kerak va u
+`<ip>.sslip.io` + Caddy orqali avtomatik bepul olinadi.
+
+### 6.1 Google Cloud'da ishga tushirish
+**Cloud Shell**da (console.cloud.google.com → yuqoridagi `>_` belgisi):
+
+```bash
+gcloud config set project <PROJECT_ID>
+
+gcloud compute instances create uwed-bot \
+  --zone=us-central1-a --machine-type=e2-micro \
+  --image-family=debian-12 --image-project=debian-cloud \
+  --boot-disk-size=30GB --boot-disk-type=pd-standard \
+  --tags=web
+
+gcloud compute firewall-rules create uwed-web --allow=tcp:80,tcp:443 --target-tags=web
+
+gcloud compute ssh uwed-bot --zone=us-central1-a
+```
+
+VM ichida:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ubakhtiyarov3/moodledeadlines/main/deploy/setup-vm.sh | bash
+nano ~/uwed-bot/.env          # BOT_TOKEN, ADMIN_IDS, AWS_* ni yozing
+cd ~/uwed-bot && sudo docker compose up -d --build
+sudo docker compose logs -f bot   # "bot polling started" chiqishi kerak
+```
+
+> Repo private bo'lsa: VM'da `git clone` uchun GitHub'da *Deploy key* qo'shing yoki
+> `REPO=https://<token>@github.com/...` bilan ishga tushiring.
+
+Yangilash: `cd ~/uwed-bot && git pull && sudo docker compose up -d --build`.
+Zaxira nusxa: `~/uwed-bot/data/bot.db` faylini vaqti-vaqti bilan yuklab oling.
+
+### 6.2 Lokal ishga tushirish (sinov uchun)
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+cp .env.example .env   # BOT_TOKEN va boshqalarni yozing
+.venv/bin/python -m app.main
+.venv/bin/python -m pytest      # 29 ta test
+```
+Mini App'ni Telegram'da sinash uchun HTTPS kerak — `cloudflared tunnel --url http://localhost:8000`
+bergan manzilni `PUBLIC_URL` ga yozing.
+
+---
+
+## 7. Talabaga Moodle linkini olish (Mini App ichida chiroyli ko'rsatilgan)
+
+1. `https://moodle.uwed.uz/calendar/export.php` ni oching (akkauntga kirgan holda).
+2. **Events to export: All events**, **Time period: Recent and next 60 days**.
+3. **Get calendar URL** → chiqqan linkni **Copy URL**.
+4. Mini App'ga qo'yib **Ulash** (yoki linkni botga oddiy xabar qilib yuborish — bot uni darhol o'chiradi,
+   chunki linkda shaxsiy token bor).
+
+Bot linkni har doim "barcha kurslar + keyingi 60 kun" ga normalizatsiya qiladi, faqat `moodle.uwed.uz`
+manzilini qabul qiladi va shifrlab saqlaydi.
+
+---
+
+## 8. Eslatma qoidalari
+
+- Default: 72, 24, 12, 6, 3, 2, 1 soat oldin (+ ixtiyoriy 48 soat, 30 daqiqa).
+- Deadline kech qo'shilsa (masalan 5 soat qolganda) — faqat **bitta** "6 soat" eslatmasi keladi, oldingilari yuborilmaydi.
+- O'qituvchi muddatni o'zgartirsa — eslatmalar yangi sanaga qayta hisoblanadi.
+- Moodle'dan o'chirilgan, bajarilgan, yashirilgan yoki o'chirilgan fan bo'yicha — eslatma yo'q.
+- Talaba **Pauza** qila oladi, fanlar bo'yicha o'chira oladi.

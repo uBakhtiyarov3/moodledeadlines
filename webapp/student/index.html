@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>UWED Student</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="icon" href="/shared/logo.png" />
+  <link rel="stylesheet" href="/shared/glass.css" />
+  <link rel="stylesheet" href="student.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <main class="app">
+    <!-- ============ DEADLINES ============ -->
+    <section class="page" id="page-deadlines">
+      <header class="header">
+        <img class="brand" src="/shared/logo.png" alt="UWED" />
+        <div class="grow">
+          <h1 id="hello">Salom 👋</h1>
+          <div class="sub" id="sync-status"></div>
+        </div>
+        <button class="icon-btn" id="btn-sync" aria-label="Sync"></button>
+      </header>
+
+      <div class="glass hero" id="hero"></div>
+
+      <div class="segmented glass" id="scope" style="margin-top:14px">
+        <button data-scope="upcoming" class="active" data-i18n="upcoming">Yaqin</button>
+        <button data-scope="done" data-i18n="done">Bajarilgan</button>
+        <button data-scope="past" data-i18n="past">O'tgan</button>
+      </div>
+
+      <div class="stack" id="deadline-list" style="margin-top:14px"></div>
+    </section>
+
+    <!-- ============ CONNECT ============ -->
+    <section class="page" id="page-connect">
+      <header class="header">
+        <div>
+          <h1 data-i18n="connect_title">Moodle'ni ulash</h1>
+          <div class="sub" data-i18n="connect_sub">2 daqiqa — va deadlinelar o'zi keladi</div>
+        </div>
+      </header>
+
+      <ol class="steps">
+        <li class="glass step">
+          <div class="num">1</div>
+          <div class="grow">
+            <div class="step-title" data-i18n="s1_t">Moodle'da eksport sahifasini oching</div>
+            <div class="muted small" data-i18n="s1_d">Akkauntingizga kirgan bo'lishingiz kerak.</div>
+            <button class="btn ghost sm" id="open-export" style="margin-top:10px"><span data-i18n="s1_btn">Sahifani ochish</span> ↗</button>
+          </div>
+        </li>
+        <li class="glass step">
+          <div class="num">2</div>
+          <div class="grow">
+            <div class="step-title" data-i18n="s2_t">Ikki narsani tanlang</div>
+            <div class="mock glass strong" aria-hidden="true">
+              <div class="mock-bar"><span></span><span></span><span></span><em>moodle.uwed.uz/calendar/export.php</em></div>
+              <div class="mock-body">
+                <div class="mock-label" data-i18n="s2_events">Events to export</div>
+                <div class="mock-radio on">All events</div>
+                <div class="mock-radio">Events related to courses</div>
+                <div class="mock-label" data-i18n="s2_period">Time period</div>
+                <div class="mock-radio on">Recent and next 60 days</div>
+                <div class="mock-radio">This week</div>
+                <div class="mock-btn">Get calendar URL</div>
+              </div>
+            </div>
+            <div class="muted small" data-i18n-html="s2_d"></div>
+          </div>
+        </li>
+        <li class="glass step">
+          <div class="num">3</div>
+          <div class="grow">
+            <div class="step-title" data-i18n="s3_t">Linkni nusxalang</div>
+            <div class="muted small" data-i18n-html="s3_d"></div>
+            <div class="mock-url">https://moodle.uwed.uz/calendar/export_execute.php?userid=…&amp;authtoken=…</div>
+          </div>
+        </li>
+        <li class="glass step">
+          <div class="num">4</div>
+          <div class="grow">
+            <div class="step-title" data-i18n="s4_t">Shu yerga qo'ying</div>
+            <div class="paste-row">
+              <input class="input" id="ical-url" inputmode="url" autocomplete="off" data-i18n-ph="paste_ph" />
+              <button class="icon-btn" id="paste" aria-label="Paste">📋</button>
+            </div>
+            <button class="btn block" id="connect-btn" style="margin-top:12px" data-i18n="connect_btn">Ulash</button>
+          </div>
+        </li>
+      </ol>
+
+      <div class="glass card privacy">
+        <div class="row"><span style="font-size:22px">🔒</span><div class="small muted" data-i18n="privacy">Link faqat kalendaringizni o'qishga ruxsat beradi. Parolingiz kerak emas, link shifrlangan holda saqlanadi.</div></div>
+      </div>
+    </section>
+
+    <!-- ============ AI ============ -->
+    <section class="page" id="page-ai">
+      <header class="header">
+        <div>
+          <h1 data-i18n="ai_title">AI yordamchi</h1>
+          <div class="sub" id="ai-left"></div>
+        </div>
+        <button class="icon-btn" id="ai-clear" aria-label="Clear">🗑</button>
+      </header>
+      <div id="chat" class="chat"></div>
+      <div class="suggest" id="suggest"></div>
+      <form class="composer glass strong" id="composer">
+        <textarea id="ai-input" rows="1" data-i18n-ph="ai_ph" maxlength="4000"></textarea>
+        <button class="send" id="ai-send" aria-label="Send"></button>
+      </form>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="page" id="page-settings">
+      <header class="header"><div><h1 data-i18n="settings">Sozlamalar</h1></div></header>
+
+      <div class="section-title" data-i18n="language">Til</div>
+      <div class="segmented glass" id="lang-seg">
+        <button data-lang="uz">O'zbekcha</button>
+        <button data-lang="ru">Русский</button>
+        <button data-lang="en">English</button>
+      </div>
+
+      <div class="section-title" data-i18n="reminders">Eslatmalar</div>
+      <div class="glass list">
+        <div class="item">
+          <div class="icon">🔕</div>
+          <div class="grow"><div class="title" data-i18n="pause">Vaqtincha to'xtatish</div><div class="meta" data-i18n="pause_d">Ta'til paytida qulay</div></div>
+          <label class="switch"><input type="checkbox" id="paused" /><span></span></label>
+        </div>
+      </div>
+      <div class="glass list" id="offsets" style="margin-top:10px"></div>
+      <div class="muted small" style="margin:8px 8px 0" data-i18n="offsets_hint">Qaysi paytlarda xabar kelishini tanlang.</div>
+
+      <div id="courses-block" class="hidden">
+        <div class="section-title" data-i18n="courses">Fanlar</div>
+        <div class="glass list" id="courses"></div>
+      </div>
+
+      <div class="section-title">Moodle</div>
+      <div class="glass list" id="moodle-box"></div>
+
+      <div class="section-title" id="admin-title" hidden>Admin</div>
+      <div class="glass list hidden" id="admin-box">
+        <div class="item" id="open-admin"><div class="icon">🛠</div><div class="grow title" data-i18n="admin_panel">Admin panel</div><span class="chev">›</span></div>
+      </div>
+
+      <p class="center muted small" style="margin-top:26px">UWED Student · v0.1</p>
+    </section>
+  </main>
+
+  <nav class="dock glass strong" id="dock">
+    <button data-page="deadlines" class="active"><span data-icon="clock"></span><span data-i18n="tab_deadlines">Deadline</span></button>
+    <button data-page="ai"><span data-icon="chat"></span><span data-i18n="tab_ai">AI</span></button>
+    <button data-page="settings"><span data-icon="gear"></span><span data-i18n="tab_settings">Sozlamalar</span></button>
+  </nav>
+
+  <script src="/shared/core.js"></script>
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

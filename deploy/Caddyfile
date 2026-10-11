@@ -1,0 +1,10 @@
+# Automatic HTTPS (Let's Encrypt). DOMAIN comes from .env, e.g. 34-123-45-67.sslip.io
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy bot:8000
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

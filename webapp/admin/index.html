@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>UWED Admin</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="icon" href="/shared/logo.png" />
+  <link rel="stylesheet" href="/shared/glass.css" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <main class="app">
+    <!-- ============ DASHBOARD ============ -->
+    <section class="page" id="page-dash">
+      <header class="header">
+        <img class="brand" src="/shared/logo.png" alt="UWED" />
+        <div class="grow"><h1 data-i18n="dash">Boshqaruv</h1><div class="sub" data-i18n="dash_sub">Bot holati bir qarashda</div></div>
+        <button class="icon-btn" id="dash-refresh" data-icon="refresh" aria-label="Refresh"></button>
+      </header>
+      <div class="kpis" id="kpis"></div>
+      <div class="glass card" style="margin-top:12px">
+        <div class="row"><div class="grow" style="font-weight:700" data-i18n="growth">Yangi foydalanuvchilar (14 kun)</div></div>
+        <div class="bars" id="growth"></div>
+      </div>
+      <div class="glass card" style="margin-top:12px">
+        <div style="font-weight:700;margin-bottom:10px" data-i18n="langs">Tillar</div>
+        <div id="langs"></div>
+      </div>
+    </section>
+
+    <!-- ============ USERS ============ -->
+    <section class="page" id="page-users">
+      <header class="header"><div><h1 data-i18n="users">Foydalanuvchilar</h1><div class="sub" id="users-total"></div></div></header>
+      <input class="input" id="user-q" type="search" data-i18n-ph="search_ph" />
+      <div class="segmented glass" id="user-filter" style="margin-top:10px">
+        <button data-f="all" class="active" data-i18n="f_all">Hammasi</button>
+        <button data-f="linked" data-i18n="f_linked">Ulangan</button>
+        <button data-f="admins" data-i18n="f_admins">Adminlar</button>
+        <button data-f="banned" data-i18n="f_banned">Bloklangan</button>
+      </div>
+      <div class="glass list" id="user-list" style="margin-top:12px"></div>
+      <button class="btn ghost block hidden" id="more-users" style="margin-top:10px" data-i18n="more">Yana</button>
+    </section>
+
+    <!-- ============ BROADCAST ============ -->
+    <section class="page" id="page-bc">
+      <header class="header"><div><h1 data-i18n="broadcast">Xabar yuborish</h1><div class="sub" data-i18n="bc_sub">Rich text — Telegram formatida</div></div></header>
+
+      <div class="glass editor-card">
+        <div class="toolbar" id="toolbar">
+          <button data-cmd="bold" title="Bold"><b>B</b></button>
+          <button data-cmd="italic" title="Italic"><i>I</i></button>
+          <button data-cmd="underline" title="Underline"><u>U</u></button>
+          <button data-cmd="strikeThrough" title="Strike"><s>S</s></button>
+          <span class="sep"></span>
+          <button data-cmd="link" title="Link">🔗</button>
+          <button data-cmd="code" title="Code"><code>&lt;/&gt;</code></button>
+          <button data-cmd="spoiler" title="Spoiler">▒</button>
+          <button data-cmd="quote" title="Quote">❝</button>
+          <button data-cmd="insertUnorderedList" title="List">•≡</button>
+          <span class="sep"></span>
+          <button data-cmd="emoji" title="Emoji">😊</button>
+          <button data-cmd="removeFormat" title="Clear">⌫</button>
+        </div>
+        <div class="editor" id="editor" contenteditable="true" spellcheck="true"></div>
+        <div class="editor-foot"><span id="char-count">0 / 4096</span></div>
+      </div>
+
+      <div class="section-title" data-i18n="button_opt">Tugma (ixtiyoriy)</div>
+      <div class="glass card stack">
+        <input class="input" id="btn-text" maxlength="64" data-i18n-ph="btn_text_ph" />
+        <input class="input" id="btn-url" inputmode="url" data-i18n-ph="btn_url_ph" />
+      </div>
+
+      <div class="section-title" data-i18n="audience">Auditoriya</div>
+      <div class="glass card stack">
+        <div class="chips" id="seg-langs">
+          <button class="pill active" data-l="uz">🇺🇿 UZ</button>
+          <button class="pill active" data-l="ru">🇷🇺 RU</button>
+          <button class="pill active" data-l="en">🇬🇧 EN</button>
+        </div>
+        <div class="segmented" id="seg-linked">
+          <button data-v="all" class="active" data-i18n="f_all">Hammasi</button>
+          <button data-v="true" data-i18n="seg_linked">Moodle ulangan</button>
+          <button data-v="false" data-i18n="seg_not">Ulanmagan</button>
+        </div>
+        <div class="muted small" id="seg-count"></div>
+      </div>
+
+      <div class="section-title" data-i18n="preview">Ko'rinishi</div>
+      <div class="glass card tg-preview"><div class="bubble" id="preview"><span class="muted" data-i18n="preview_empty">Matn yozing…</span></div><div id="preview-btn"></div></div>
+
+      <div class="bc-actions">
+        <button class="btn ghost" id="bc-test" data-i18n="send_test">O'zimga test</button>
+        <button class="btn crimson" id="bc-send" data-i18n="send_all">Yuborish</button>
+      </div>
+
+      <div class="section-title" data-i18n="history">Tarix</div>
+      <div class="stack" id="bc-history"></div>
+    </section>
+
+    <!-- ============ AI / KNOWLEDGE ============ -->
+    <section class="page" id="page-ai">
+      <header class="header">
+        <div><h1 data-i18n="ai">AI bilim bazasi</h1><div class="sub" id="kb-sub"></div></div>
+        <button class="btn sm" id="kb-add">＋ <span data-i18n="add">Qo'shish</span></button>
+      </header>
+      <div class="glass card small muted" data-i18n-html="kb_help"></div>
+      <div class="stack" id="kb-list" style="margin-top:12px"></div>
+
+      <div class="section-title" data-i18n="test_ai">AI'ni sinash</div>
+      <div class="glass card stack">
+        <div class="paste-row"><input class="input" id="ai-q" data-i18n-ph="ask_ph" /><button class="btn sm" id="ai-ask">→</button></div>
+        <div id="ai-out"></div>
+      </div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="page" id="page-set">
+      <header class="header"><div><h1 data-i18n="settings">Sozlamalar</h1></div></header>
+
+      <div class="section-title" data-i18n="bot">Bot</div>
+      <div class="glass list">
+        <div class="item"><div class="icon">🛠</div><div class="grow"><div class="title" data-i18n="maintenance">Texnik ishlar rejimi</div><div class="meta" data-i18n="maintenance_d">Faqat adminlar foydalana oladi</div></div>
+          <label class="switch"><input type="checkbox" id="s-maint" /><span></span></label></div>
+      </div>
+
+      <div class="section-title" data-i18n="ai">AI</div>
+      <div class="glass list">
+        <div class="item"><div class="icon">🤖</div><div class="grow title" data-i18n="ai_enabled">AI yoqilgan</div>
+          <label class="switch"><input type="checkbox" id="s-ai" /><span></span></label></div>
+        <div class="item"><div class="icon">🎯</div><div class="grow title" data-i18n="ai_limit">Kunlik limit (har bir talaba)</div>
+          <input class="input num" id="s-limit" type="number" min="0" max="1000" /></div>
+      </div>
+      <div class="glass card" style="margin-top:10px">
+        <div class="field"><label data-i18n="sys_prompt">System prompt</label><textarea class="input" id="s-prompt" rows="8"></textarea></div>
+      </div>
+
+      <div class="section-title" data-i18n="def_offsets">Yangi talabalar uchun default eslatmalar</div>
+      <div class="chips glass card" id="s-offsets"></div>
+
+      <button class="btn block" id="s-save" style="margin-top:16px" data-i18n="save">Saqlash</button>
+      <button class="btn ghost block" id="to-student" style="margin-top:10px" data-i18n="student_view">Talaba ko'rinishi</button>
+    </section>
+  </main>
+
+  <nav class="dock glass strong" id="dock">
+    <button data-page="dash" class="active"><span data-icon="home"></span><span data-i18n="t_dash">Asosiy</span></button>
+    <button data-page="users"><span data-icon="users"></span><span data-i18n="t_users">Userlar</span></button>
+    <button data-page="bc"><span data-icon="megaphone"></span><span data-i18n="t_bc">Xabar</span></button>
+    <button data-page="ai"><span data-icon="brain"></span><span data-i18n="t_ai">AI</span></button>
+    <button data-page="set"><span data-icon="gear"></span><span data-i18n="t_set">Sozlama</span></button>
+  </nav>
+
+  <script src="/shared/core.js"></script>
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

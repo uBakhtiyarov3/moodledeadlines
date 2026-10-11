@@ -1,0 +1,77 @@
+/* ---------- hero (next deadline) ---------- */
+.hero { padding: 18px; display: flex; gap: 16px; align-items: center; min-height: 112px; }
+.ring { width: 78px; height: 78px; flex: none; position: relative; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .track { stroke: var(--glass-edge); }
+.ring .bar { transition: stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1); }
+.ring .label { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-weight: 750; font-size: 15px; line-height: 1.05; }
+.ring .label small { display: block; font-size: 10px; font-weight: 600; color: var(--text-2); }
+.hero .kicker { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); font-weight: 700; }
+.hero .what { font-size: 17px; font-weight: 700; margin: 2px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hero .stats { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+
+/* ---------- deadline cards ---------- */
+.dl { padding: 14px 16px; display: flex; gap: 12px; align-items: stretch; cursor: pointer; transition: transform .15s; }
+.dl:active { transform: scale(.985); }
+.dl .stripe { width: 4px; border-radius: 4px; flex: none; background: var(--ok); }
+.dl.u-mid .stripe { background: var(--warn); }
+.dl.u-high .stripe { background: var(--danger); box-shadow: 0 0 12px rgba(239,68,68,.6); }
+.dl.is-done { opacity: .65; }
+.dl.is-done .t { text-decoration: line-through; }
+.dl .t { font-weight: 650; font-size: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dl .c { color: var(--text-2); font-size: 13px; margin-top: 2px; }
+.dl .when { text-align: right; flex: none; display: flex; flex-direction: column; justify-content: center; gap: 4px; align-items: flex-end; }
+.dl .when b { font-size: 15px; }
+.dl .when span { font-size: 12px; color: var(--text-2); }
+.day-label { font-size: 13px; font-weight: 700; color: var(--text-2); margin: 18px 6px 2px; }
+
+/* ---------- connect steps ---------- */
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.step { display: flex; gap: 14px; padding: 16px; }
+.step .num {
+  width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 800; color: #fff;
+  background: var(--brand-grad); box-shadow: 0 4px 12px rgba(138,1,25,.25);
+}
+.step-title { font-weight: 700; margin-bottom: 4px; }
+.mock { margin: 10px 0; border-radius: 14px; font-size: 12px; }
+.mock-bar { display: flex; align-items: center; gap: 5px; padding: 8px 10px; border-bottom: 1px solid var(--glass-edge); }
+.mock-bar span { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); opacity: .5; }
+.mock-bar em { font-style: normal; color: var(--text-3); margin-left: 6px; font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mock-body { padding: 10px 12px 12px; }
+.mock-label { font-weight: 700; margin: 6px 0 4px; color: var(--text-2); }
+.mock-radio { padding: 4px 0 4px 22px; position: relative; color: var(--text-3); }
+.mock-radio::before { content: ""; position: absolute; left: 2px; top: 6px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--text-3); }
+.mock-radio.on { color: var(--text); font-weight: 650; }
+.mock-radio.on::before { border-color: var(--crimson); background: radial-gradient(var(--crimson) 45%, transparent 50%); box-shadow: 0 0 0 4px rgba(138,1,25,.16); }
+.mock-btn { display: inline-block; margin-top: 10px; padding: 6px 12px; border-radius: 8px; color: #fff; background: var(--navy); font-weight: 700; box-shadow: 0 0 0 3px rgba(138,1,25,.55); animation: pulse 1.8s infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(138,1,25,.18); } }
+.mock-url { margin-top: 8px; font: 11px ui-monospace, Menlo, monospace; padding: 8px 10px; border-radius: 10px; background: var(--input); border: 1px dashed var(--crimson); color: var(--text-2); word-break: break-all; }
+.paste-row { display: flex; gap: 8px; margin-top: 8px; }
+.privacy { margin-top: 14px; padding: 14px; }
+
+/* ---------- AI chat ---------- */
+#page-ai.active { display: flex; flex-direction: column; min-height: calc(100vh - 140px); }
+.chat { flex: 1; display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
+.chat .bubble { animation: rise .3s; }
+.typing { display: inline-flex; gap: 4px; }
+.typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); animation: blink 1.2s infinite; }
+.typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 50% { opacity: .2; transform: translateY(-2px); } }
+.suggest { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 10px; scrollbar-width: none; }
+.suggest::-webkit-scrollbar { display: none; }
+.suggest button { flex: none; border: 1px solid var(--glass-border); background: var(--glass-strong); color: var(--text); border-radius: 999px; padding: 8px 14px; font: 600 13px var(--font); cursor: pointer; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.composer {
+  position: sticky; bottom: calc(86px + env(safe-area-inset-bottom)); display: flex; align-items: flex-end; gap: 8px;
+  padding: 6px 6px 6px 16px; border-radius: 26px;
+}
+.composer textarea { flex: 1; border: 0; outline: 0; resize: none; background: transparent; color: var(--text); font: 15px var(--font); padding: 9px 0; max-height: 120px; }
+.composer .send { width: 40px; height: 40px; border-radius: 50%; border: 0; color: #fff; display: grid; place-items: center; cursor: pointer; background: var(--brand-grad); }
+.composer .send svg { width: 18px; height: 18px; }
+.ai-hello { padding: 22px 18px; text-align: center; }
+.ai-hello .orb { width: 64px; height: 64px; margin: 0 auto 10px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fff, var(--navy) 48%, var(--crimson)); box-shadow: 0 10px 30px rgba(138,1,25,.35); animation: float 4s ease-in-out infinite; }
+@keyframes float { 50% { transform: translateY(-6px) scale(1.04); } }
+
+/* ---------- detail sheet ---------- */
+.detail h2 { margin: 0 0 6px; font-size: 20px; letter-spacing: -.01em; }
+.detail .desc { margin: 12px 0; color: var(--text-2); font-size: 14px; max-height: 180px; overflow: auto; }
+.detail .actions { display: grid; gap: 10px; margin-top: 16px; }
