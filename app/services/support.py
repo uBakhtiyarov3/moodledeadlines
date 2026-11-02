@@ -2,7 +2,7 @@
 
 Students write from the bot ("💬 Admin bilan chat" mode) or from the Mini App chat page.
 Every admin gets the message as a rich card and can answer by replying to it, by tapping
-"↩️ Javob berish", or from the admin Mini App. Answers reach the student in Telegram and
+"↩️ Javob beriş", or from the admin Mini App. Answers reach the student in Telegram and
 appear in the Mini App chat.
 """
 
@@ -154,9 +154,9 @@ def student_card(text: str, lang: str) -> str:
 def admin_kb(student_id: int) -> InlineKeyboardMarkup:
     from app.bot.keyboards import app_enabled, app_url
 
-    row = [InlineKeyboardButton(text="↩️ Javob berish", callback_data=f"sup:reply:{student_id}", style="primary")]
+    row = [InlineKeyboardButton(text="↩️ Javob beriş", callback_data=f"sup:reply:{student_id}", style="primary")]
     if app_enabled():
-        row.append(InlineKeyboardButton(text="📂 Yozishma",
+        row.append(InlineKeyboardButton(text="📂 Yozişma",
                                         web_app=WebAppInfo(url=app_url("admin") + f"?p=chat-{student_id}")))
     return InlineKeyboardMarkup(inline_keyboard=[row])
 

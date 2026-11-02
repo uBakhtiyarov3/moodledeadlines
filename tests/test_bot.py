@@ -226,8 +226,10 @@ async def test_admin_chat_flow(tg, monkeypatch):
     monkeypatch.setattr(ai, "ask_stream", no_ai)
     await tg("/start", uid=1)  # admin (ADMIN_IDS=1)
     await tg("/start", uid=910)
-    out = await tg("💬 Admin bilan chat", uid=910)
-    assert texts(out)[0].startswith("### 💬 Admin bilan chat")
+    out = await tg("💬 Admin bilan chat", uid=910)  # old-alphabet keyboard still works
+    assert texts(out)[0].startswith("### 💬 Admin bilan çat")
+    out = await tg("💬 Admin bilan çat", uid=910)
+    assert texts(out)[0].startswith("### 💬 Admin bilan çat")
     assert "sup:close" in out[-1].reply_markup.model_dump_json()
 
     out = await tg("Kontrakt bo'yicha savolim bor", uid=910)
@@ -261,3 +263,17 @@ async def test_admin_chat_flow(tg, monkeypatch):
     out = await tg(callback="sup:close", uid=910)
     assert any("yopildi" in (t or "") for t in texts(out))
     assert await support.get_state(910) is None
+
+
+def test_uzbek_texts_use_new_alphabet():
+    import re
+
+    from app.i18n import REMINDERS, T
+    from app.services import tts
+
+    uz = [v["uz"] for v in [*T.values(), *REMINDERS.values()]]
+    old = re.compile(r"[oOgG][ʻ‘’']|(?<![A-Za-z])(?:sh|ch)|[a-z](?:sh|ch)")
+    plain = [re.sub(r"<[^>]*>|`[^`]*`|/\w+|https?://\S+|Choose your language", "", s) for s in uz]
+    assert not [s for s in plain if old.search(s)]
+    # speech still gets the current official spelling
+    assert tts.speakable("Öqituvçi şu yerda ğalaba") == "Oʻqituvchi shu yerda gʻalaba"

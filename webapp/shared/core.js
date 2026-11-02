@@ -44,7 +44,7 @@
     en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
   };
   const WEEKDAYS = {
-    uz: ["yakshanba", "dushanba", "seshanba", "chorshanba", "payshanba", "juma", "shanba"],
+    uz: ["yakşanba", "duşanba", "seşanba", "çorşanba", "payşanba", "juma", "şanba"],
     ru: ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"],
     en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
   };

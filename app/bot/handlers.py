@@ -13,7 +13,7 @@ from app.bot import rich
 from app.bot.keyboards import admin_kb, lang_kb, main_kb, open_app_kb
 from app.config import get_settings
 from app.db import Session
-from app.i18n import T, humanize_left, t
+from app.i18n import LEGACY_BUTTONS, T, humanize_left, t
 from app.models import ChatMessage, Deadline, User
 from app.moodle.ical import IcalUrlError
 from app.services import ai, linking, support, tts, users
@@ -55,7 +55,7 @@ async def say(msg: Message, text: str, kb=None) -> None:
 
 
 def _texts(key: str) -> set[str]:
-    return set(T[key].values())
+    return set(T[key].values()) | LEGACY_BUTTONS.get(key, set())
 
 
 @router.message(CommandStart())
@@ -225,7 +225,7 @@ async def support_reply_cb(cb: CallbackQuery, user: User):
 
 
 class AdminReplying(Filter):
-    """An admin answering a student: native reply to a relayed card, or after "↩️ Javob berish"."""
+    """An admin answering a student: native reply to a relayed card, or after "↩️ Javob beriş"."""
 
     async def __call__(self, message: Message, user: User) -> bool | dict:
         if not users.is_admin(user) or (message.text or "").startswith("/"):

@@ -16,6 +16,9 @@ TTS_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:gener
 MAX_CHARS = 1200
 EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-➿️‍]")
 
+# New Uzbek alphabet → current official spelling, for pronunciation only.
+OLD_LETTERS = str.maketrans({"Ö": "Oʻ", "ö": "oʻ", "Ğ": "Gʻ", "ğ": "gʻ", "Ş": "Sh", "ş": "sh", "Ç": "Ch", "ç": "ch"})
+
 
 def speakable(markdown: str) -> str:
     """Strip formatting, links and emoji so the voice reads naturally; cap the length."""
@@ -26,6 +29,7 @@ def speakable(markdown: str) -> str:
     t = re.sub(r"[*_`~>#|]", "", t)
     t = re.sub(r"^\s*[-•◦]\s+", "", t, flags=re.M)
     t = EMOJI.sub("", t)
+    t = t.translate(OLD_LETTERS)  # speech models know Uzbek in the current spelling
     t = re.sub(r"[ \t]+", " ", t)
     t = re.sub(r"\n{2,}", "\n", t).strip()
     if len(t) > MAX_CHARS:

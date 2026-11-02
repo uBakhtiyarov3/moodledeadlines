@@ -24,7 +24,7 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:ge
 _client = None
 
 REFUSAL = {
-    "uz": "Kechirasiz, bu savolga javob bera olmayman. UWED, o'qish yoki deadlinelar haqida so'rang.",
+    "uz": "Keçirasiz, bu savolga javob bera olmayman. UWED, öqiş yoki deadlinelar haqida sörang.",
     "ru": "Извините, на этот вопрос я ответить не могу. Спросите об UWED, учёбе или дедлайнах.",
     "en": "Sorry, I can't help with that. Ask me about UWED, your studies or deadlines.",
 }
