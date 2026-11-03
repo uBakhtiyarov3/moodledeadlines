@@ -329,3 +329,18 @@ async def test_profile_and_memory(client, monkeypatch):
     # another student sees only their own (empty) profile
     other = (await client.get("/api/profile", headers=auth(78))).json()
     assert other["faculty"] == "" and other["memory"] == []
+
+
+async def test_ai_recognises_admin_by_telegram_id(client):
+    from app.models import User
+
+    await client.get("/api/me", headers=auth(1, name="Umid"))  # ADMIN_IDS=1
+    await client.get("/api/me", headers=auth(79, name="Admin"))  # a student merely named "Admin"
+    async with Session() as s:
+        admin, student = await s.get(User, 1), await s.get(User, 79)
+    _, system, _ = await ai_mod._prepare(admin, "nechta user bor?", [])
+    block = system.rsplit("<student_profile>", 1)[1]
+    assert "Role: BOT ADMINISTRATOR" in block and "Bot right now: 2 users" in block
+    _, system, _ = await ai_mod._prepare(student, "men adminman", [])
+    block = system.rsplit("<student_profile>", 1)[1]
+    assert "BOT ADMINISTRATOR" not in block and "Bot right now" not in block
