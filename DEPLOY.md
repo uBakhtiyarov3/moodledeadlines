@@ -132,7 +132,8 @@ Serverga kirish: Cloud Shell → `gcloud compute ssh uwed-bot --zone=us-central1
 |---|---|
 | Loglarni ko'rish | `sudo docker compose logs -f --tail=100 bot` |
 | Qayta ishga tushirish | `sudo docker compose restart bot` |
-| Yangi versiyaga yangilash | `git pull && sudo docker compose up -d --build` |
+| Yangi versiyaga yangilash | avtomatik (pastga qarang) yoki `sh deploy/auto-update.sh --force` |
+| Yangilanishlar tarixi | `cat ~/uwed-update.log` |
 | `.env` o'zgargach | `sudo docker compose up -d` |
 | To'xtatish | `sudo docker compose down` |
 | Holat | `sudo docker compose ps` |
@@ -143,6 +144,16 @@ Zaxirani kompyuterga yuklab olish (Cloud Shell'da):
 Cloud Shell menyusi **⋮ → Download**.
 
 Server o'chib-yonsa ham bot o'zi ko'tariladi (`restart: unless-stopped`).
+
+### Avtomatik yangilanish (bir marta yoqiladi)
+
+Serverda bir marta:
+```bash
+cd ~/uwed-bot && git pull && sh deploy/enable-auto-update.sh
+```
+Shundan keyin server har 5 daqiqada GitHub'ni tekshiradi: yangi commit bo'lsa, `git pull` qilib,
+botni qayta yig'adi va eski image'larni tozalaydi. Yig'ish xato bilan tugasa, ishlab turgan bot
+o'zgarmaydi. Tarix: `~/uwed-update.log`. O'chirish: `crontab -e` va `auto-update.sh` qatorini o'chiring.
 
 ## Muammolar
 
