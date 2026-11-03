@@ -43,9 +43,10 @@ async def call(token: str, function: str, **params) -> dict | list:
     return data
 
 
-async def site_userid(token: str) -> int:
+async def site_info(token: str) -> tuple[int, str]:
+    """(Moodle user id, full name) of the token's owner."""
     info = await call(token, "core_webservice_get_site_info")
-    return int(info["userid"])
+    return int(info["userid"]), str(info.get("fullname") or "").strip()
 
 
 async def pending_action_event_ids(token: str, days_ahead: int = 90) -> set[int]:

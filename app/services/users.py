@@ -5,6 +5,7 @@ from app.config import get_settings
 from app.db import Session
 from app.i18n import LANGS
 from app.models import User, utcnow
+from app.services import profile
 from app.services import settings as rt
 
 
@@ -17,7 +18,8 @@ def guess_lang(code: str | None) -> str:
     return "uz"
 
 
-async def upsert(tg_id: int, first_name: str = "", username: str | None = None, lang_code: str | None = None) -> tuple[User, bool]:
+async def upsert(tg_id: int, first_name: str = "", username: str | None = None, lang_code: str | None = None,
+                 last_name: str | None = None) -> tuple[User, bool]:
     """Create or refresh a user. Returns (user, created).
 
     Telegram may deliver several updates from a brand-new user at once (they are handled
@@ -42,6 +44,7 @@ async def upsert(tg_id: int, first_name: str = "", username: str | None = None, 
                 if attempt:
                     raise
                 continue
+            await profile.note_last_name(tg_id, last_name)
             return u, created
     raise RuntimeError("unreachable")
 

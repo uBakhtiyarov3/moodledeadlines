@@ -12,7 +12,7 @@ from app.i18n import LANGS
 from app.models import ChatMessage, Deadline, User
 from app.moodle import ws
 from app.moodle.ical import IcalUrlError
-from app.services import ai, linking, support, users
+from app.services import ai, linking, profile, support, users
 from app.services import settings as rt
 from app.services.sync import sync_user
 from app.services.tg_html import markdown_to_tg
@@ -237,3 +237,51 @@ async def support_send(body: SupportIn, user: User = Depends(current_user), b=De
         raise HTTPException(400, "empty")
     m = await support.from_student(b, user, body.text.strip())
     return support_out(m)
+
+
+# ---------------------------------------------------------------- profile & AI memory
+
+def profile_out(u: User, p) -> dict:
+    return {
+        "name": " ".join(filter(None, [u.first_name, p.last_name])),
+        "username": u.username,
+        "moodle_name": p.moodle_name,
+        "faculty": p.faculty,
+        "year": p.year,
+        "group_name": p.group_name,
+        "about": p.about,
+        "memory": p.memory or [],
+        "memory_on": p.memory_on,
+    }
+
+
+class ProfileIn(BaseModel):
+    faculty: str | None = Field(None, max_length=160)
+    year: str | None = Field(None, max_length=16)
+    group_name: str | None = Field(None, max_length=64)
+    about: str | None = Field(None, max_length=600)
+    memory_on: bool | None = None
+
+
+@router.get("/profile")
+async def get_profile(user: User = Depends(current_user)):
+    return profile_out(user, await profile.get(user.id))
+
+
+@router.patch("/profile")
+async def patch_profile(body: ProfileIn, user: User = Depends(current_user)):
+    p = await profile.update(user.id, **body.model_dump(exclude_none=True))
+    return profile_out(user, p)
+
+
+@router.delete("/profile/memory")
+async def forget(index: int | None = None, user: User = Depends(current_user)):
+    """Forget one remembered fact (by index) or all of them."""
+    p = await profile.get(user.id)
+    memory = list(p.memory or [])
+    if index is None:
+        memory = []
+    elif 0 <= index < len(memory):
+        memory.pop(index)
+    p = await profile.update(user.id, memory=memory)
+    return profile_out(user, p)

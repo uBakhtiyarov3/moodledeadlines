@@ -280,3 +280,52 @@ async def test_support_chat_api(client, monkeypatch):
 
     # students can't read other threads or the admin inbox
     assert (await client.get("/api/admin/support", headers=hs)).status_code == 403
+
+
+async def test_profile_and_memory(client, monkeypatch):
+    """The AI sees who the student is; the student controls what it remembers."""
+    from app.models import User
+    from app.services import profile
+
+    h = auth(77, name="Madina")
+    url = "https://moodle.uwed.uz/calendar/export_execute.php?userid=7&authtoken=" + "c" * 32
+    await client.post("/api/moodle/ical", headers=h, json={"url": url})
+
+    r = await client.patch("/api/profile", headers=h, json={
+        "faculty": " Xalqaro munosabatlar ", "year": "2", "group_name": "XM-21", "about": "Diplom: Markaziy Osiyo"})
+    p = r.json()
+    assert p["name"] == "Madina" and p["faculty"] == "Xalqaro munosabatlar" and p["year"] == "2"
+    assert (await client.patch("/api/profile", headers=h, json={"year": "9"})).json()["year"] == ""
+    await client.patch("/api/profile", headers=h, json={"year": "master"})
+
+    async with Session() as s:
+        user = await s.get(User, 77)
+    _, system, _ = await ai_mod._prepare(user, "salom", [])
+    block = system.rsplit("<student_profile>", 1)[1].split("</student_profile>")[0]
+    for part in ("Madina", "Xalqaro munosabatlar", "master’s", "XM-21", "Markaziy Osiyo", "Diplomacy 101", "Moodle connected: yes"):
+        assert part in block, part
+
+    # memory: the light model's answer is cleaned, deduplicated and capped
+    async def fake_json(system, text):
+        assert "Remembered so far" in text and "Student: Men 2-kursda" in text
+        return {"facts": ["Ingliz tilini yaxşilamoqçi", "Ingliz tilini yaxşilamoqçi", "  Statistika qiyin  ", *[f"f{i}" for i in range(30)]]}
+
+    monkeypatch.setattr(ai_mod, "quick_json", fake_json)
+    await profile._learn(77, "Men 2-kursda öqiyman, statistika qiyin", "Tuşundim")
+    mem = (await client.get("/api/profile", headers=h)).json()["memory"]
+    assert mem[:2] == ["Ingliz tilini yaxşilamoqçi", "Statistika qiyin"] and len(mem) == profile.MAX_FACTS
+    _, system, _ = await ai_mod._prepare(user, "salom", [])
+    assert "Remembered from earlier chats" in system and "Statistika qiyin" in system
+
+    assert (await client.delete("/api/profile/memory?index=0", headers=h)).json()["memory"][0] == "Statistika qiyin"
+    r = await client.patch("/api/profile", headers=h, json={"memory_on": False})
+    assert r.json()["memory_on"] is False
+    _, system, _ = await ai_mod._prepare(user, "salom", [])
+    assert "Remembered from earlier chats" not in system  # switched off → not used, not learned
+    await profile._learn(77, "Men 3-kursga ötdim, bu muhim", "OK")
+    assert "Statistika qiyin" in (await client.get("/api/profile", headers=h)).json()["memory"]
+    assert (await client.delete("/api/profile/memory", headers=h)).json()["memory"] == []
+
+    # another student sees only their own (empty) profile
+    other = (await client.get("/api/profile", headers=auth(78))).json()
+    assert other["faculty"] == "" and other["memory"] == []

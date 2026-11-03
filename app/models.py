@@ -192,3 +192,23 @@ class SupportRelay(Base):
     admin_id: Mapped[int] = mapped_column(BigInteger)
     message_id: Mapped[int] = mapped_column(Integer)
     user_id: Mapped[int] = mapped_column(BigInteger)
+
+
+class Profile(Base):
+    """What the AI knows about a student: names, study details they entered and remembered facts.
+
+    A separate table (not columns on users) so existing databases get it without a migration.
+    """
+
+    __tablename__ = "profiles"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    last_name: Mapped[str] = mapped_column(String(128), default="")
+    moodle_name: Mapped[str] = mapped_column(String(255), default="")  # full name from Moodle (account link)
+    faculty: Mapped[str] = mapped_column(String(160), default="")
+    year: Mapped[str] = mapped_column(String(16), default="")  # "1".."4" | "master"
+    group_name: Mapped[str] = mapped_column(String(64), default="")
+    about: Mapped[str] = mapped_column(Text, default="")
+    memory: Mapped[list] = mapped_column(JSON, default=list)  # short facts learned from chats
+    memory_on: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)

@@ -386,6 +386,7 @@
     }));
     renderMoodleBox();
     renderCourses();
+    renderProfileBox();
     $("#admin-box").classList.toggle("hidden", !me.is_admin);
     $("#admin-title").hidden = !me.is_admin;
   }
@@ -398,6 +399,81 @@
       save({ muted_courses: $$("#courses input").filter((x) => !x.checked).map((x) => x.dataset.course) });
     }));
   }
+  // ---------- profile & AI memory ----------
+  let prof = null;
+  async function loadProfile() {
+    try { prof = await api("/api/profile"); renderProfileBox(); } catch (e) { /* settings still work without it */ }
+  }
+  const yearLabel = (y) => (y === "master" ? t("year_master") : y ? t("year_n", { n: y }) : "");
+  function renderProfileBox() {
+    const box = $("#profile-box");
+    if (!prof) { box.innerHTML = ""; return; }
+    const summary = [prof.faculty, yearLabel(prof.year), prof.group_name].filter(Boolean).join(" · ");
+    const mem = !prof.memory_on ? t("memory_off") : prof.memory.length ? t("memory_n", { n: prof.memory.length }) : t("memory_zero");
+    box.innerHTML = `
+      <div class="item" id="open-profile"><div class="icon">👤</div>
+        <div class="grow"><div class="title ellipsis">${esc(prof.name || prof.moodle_name || "—")}</div>
+        <div class="meta ellipsis">${esc(summary || t("profile_fill"))}</div></div><span class="chev">›</span></div>
+      <div class="item" id="open-memory"><div class="icon">🧠</div>
+        <div class="grow"><div class="title">${t("memory")}</div><div class="meta">${esc(mem)}</div></div><span class="chev">›</span></div>`;
+    $("#open-profile").onclick = openProfile;
+    $("#open-memory").onclick = openMemory;
+  }
+  function openProfile() {
+    const years = ["1", "2", "3", "4", "master"];
+    openSheet(`<h2 style="margin-top:0">${esc(prof.name || t("profile"))}</h2>
+      ${prof.moodle_name ? `<p class="muted small" style="margin-top:-6px">Moodle: ${esc(prof.moodle_name)}</p>` : ""}
+      <p class="muted small">${t("profile_hint")}</p>
+      <div class="stack">
+        <div class="field"><label>${t("faculty")}</label><input class="input" id="pf-faculty" maxlength="160" placeholder="${esc(t("faculty_ph"))}" value="${esc(prof.faculty)}"/></div>
+        <div class="field"><label>${t("year")}</label><select class="input" id="pf-year"><option value="">—</option>
+          ${years.map((y) => `<option value="${y}" ${prof.year === y ? "selected" : ""}>${esc(yearLabel(y))}</option>`).join("")}</select></div>
+        <div class="field"><label>${t("group")}</label><input class="input" id="pf-group" maxlength="64" value="${esc(prof.group_name)}"/></div>
+        <div class="field"><label>${t("about")}</label><textarea class="input" id="pf-about" maxlength="600" placeholder="${esc(t("about_ph"))}">${esc(prof.about)}</textarea></div>
+        <button class="btn block" id="pf-save">${t("save")}</button>
+      </div>`, (s) => {
+      $("#pf-save", s).onclick = async (ev) => {
+        ev.target.disabled = true;
+        try {
+          prof = await api("/api/profile", { method: "PATCH", body: {
+            faculty: $("#pf-faculty", s).value, year: $("#pf-year", s).value,
+            group_name: $("#pf-group", s).value, about: $("#pf-about", s).value } });
+          closeSheet(); toast(t("saved"), "success"); renderProfileBox();
+        } catch (e) { toast(errText(e), "error"); }
+        ev.target.disabled = false;
+      };
+    });
+  }
+  function openMemory() {
+    const facts = prof.memory.map((f, i) => `
+      <div class="item"><div class="grow small">${esc(f)}</div>
+        <button class="btn ghost sm" data-forget="${i}" aria-label="✕">✕</button></div>`).join("");
+    openSheet(`<h2 style="margin-top:0">🧠 ${t("memory")}</h2>
+      <p class="muted small">${t("memory_d")}</p>
+      <div class="glass list">
+        <div class="item"><div class="grow title">${t("memory_toggle")}</div>
+          <label class="switch"><input type="checkbox" id="mem-on" ${prof.memory_on ? "checked" : ""}/><span></span></label></div>
+      </div>
+      ${prof.memory.length ? `<div class="glass list" style="margin-top:10px">${facts}</div>
+        <button class="btn danger block" id="mem-clear" style="margin-top:14px">${t("memory_clear")}</button>`
+        : `<p class="center muted small" style="margin-top:16px">${t("memory_zero")}</p>`}`, (s) => {
+      $("#mem-on", s).onchange = async (e) => {
+        try { prof = await api("/api/profile", { method: "PATCH", body: { memory_on: e.target.checked } }); haptic("select"); renderProfileBox(); }
+        catch (err) { toast(errText(err), "error"); }
+      };
+      $$("[data-forget]", s).forEach((b) => (b.onclick = async () => {
+        try { prof = await api(`/api/profile/memory?index=${b.dataset.forget}`, { method: "DELETE" }); renderProfileBox(); openMemory(); }
+        catch (err) { toast(errText(err), "error"); }
+      }));
+      const clear = $("#mem-clear", s);
+      if (clear) clear.onclick = async () => {
+        if (!(await confirmDialog(t("memory_clear_q")))) return;
+        try { prof = await api("/api/profile/memory", { method: "DELETE" }); renderProfileBox(); openMemory(); }
+        catch (err) { toast(errText(err), "error"); }
+      };
+    });
+  }
+
   function renderMoodleBox() {
     const box = $("#moodle-box");
     if (!me.linked) {
@@ -473,6 +549,7 @@
     const start = UW.startPage();
     show(["ai", "settings", "connect", "support", "deadlines"].includes(start) ? start : "deadlines");
     setSupBadge(me.support_unread || 0);
+    loadProfile();
     if (me.linked) loadDeadlines();
     setInterval(() => { if (scope === "upcoming") { renderHero(); renderList(); } }, 30000);
   }

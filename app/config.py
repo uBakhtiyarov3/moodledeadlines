@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     gemini_max_tokens: int = 8192
     # Gemini 3 "thinking" depth: low = fast & cheap (good for chat); "" = model default
     gemini_thinking_level: str = "low"
+    # Small background model that keeps each student's AI memory up to date
+    gemini_memory_model: str = "gemini-flash-lite-latest"
     # Voice replies (text-to-speech) to students who ask by voice
     gemini_tts_model: str = "gemini-3.8-flash-tts"
     gemini_tts_voice: str = "Kore"

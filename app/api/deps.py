@@ -17,7 +17,8 @@ async def current_user(authorization: str = Header(default="")) -> User:
     except InitDataError as e:
         raise HTTPException(401, str(e)) from e
     tg = data.get("user") or {}
-    user, _ = await users.upsert(tg["id"], tg.get("first_name", ""), tg.get("username"), tg.get("language_code"))
+    user, _ = await users.upsert(tg["id"], tg.get("first_name", ""), tg.get("username"), tg.get("language_code"),
+                                 tg.get("last_name"))
     if user.is_banned:
         raise HTTPException(403, "banned")
     if rt.get("maintenance") and not users.is_admin(user):

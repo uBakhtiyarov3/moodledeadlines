@@ -32,7 +32,7 @@ class UserMiddleware(BaseMiddleware):
         tg = data.get("event_from_user")
         if tg is None:
             return await handler(event, data)
-        user, created = await users.upsert(tg.id, tg.first_name, tg.username, tg.language_code)
+        user, created = await users.upsert(tg.id, tg.first_name, tg.username, tg.language_code, tg.last_name)
         data["user"], data["created"] = user, created
         async def notify(key: str):
             if isinstance(event, Message):

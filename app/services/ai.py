@@ -14,7 +14,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import Session
 from app.models import ChatMessage, Deadline, User
-from app.services import kb
+from app.services import kb, profile
 from app.services import settings as rt
 
 log = logging.getLogger(__name__)
@@ -162,6 +162,29 @@ async def _gemini_generate(system: str, turns: list[dict]) -> str:
     return _texts(data).strip()
 
 
+async def quick_json(system: str, text: str) -> dict | None:
+    """One small JSON-mode call on the light model (background jobs); None on any failure."""
+    st = get_settings()
+    if st.ai_provider != "gemini" or not st.gemini_api_key:
+        return None
+    body = {
+        "system_instruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": text}]}],
+        "generationConfig": {"maxOutputTokens": 1024, "responseMimeType": "application/json"},
+    }
+    try:
+        async with _http() as c:
+            r = await c.post(GEMINI_URL.format(model=st.gemini_memory_model),
+                             headers={"x-goog-api-key": st.gemini_api_key}, json=body)
+        if r.status_code != 200:
+            log.info("memory model %s: %s", r.status_code, r.text[:200])
+            return None
+        data = json.loads(_texts(r.json()) or "null")
+    except (httpx.HTTPError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
 async def _gemini_stream(system: str, turns: list[dict]):
     """Yield answer text chunks as Gemini generates them (server-sent events).
 
@@ -269,6 +292,7 @@ async def _prepare(user: User, question: str, media: list[Media]) -> tuple[str, 
         + f"\n\n<admin_notes>\n{rt.get('ai_system_prompt')}\n</admin_notes>\n\n"
         + f"Current time (Tashkent): {now_local:%Y-%m-%d %H:%M}. Student's interface language: {u.lang}.\n\n"
         + f"<knowledge_base>\n{knowledge}\n</knowledge_base>\n\n"
+        + f"<student_profile>\n{await profile.context(u)}\n</student_profile>\n\n"
         + f"<student_deadlines>\n{await _deadline_context(user.id)}\n</student_deadlines>"
     )
     turns = [{"role": m.role, "text": m.content} for m in history]
@@ -288,6 +312,7 @@ async def _save(user_id: int, question: str, media: list[Media], answer: str) ->
         s.add(ChatMessage(user_id=user_id, role="assistant", content=answer))
         u.ai_used_today += 1
         await s.commit()
+    profile.learn_later(user_id, question, answer)
 
 
 async def ask(user: User, question: str, media: list[Media] | None = None) -> str:
