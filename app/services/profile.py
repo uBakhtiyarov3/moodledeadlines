@@ -105,10 +105,7 @@ async def context(u: User) -> str:
     p = await get(u.id)
     tz = ZoneInfo(get_settings().timezone)
     name = " ".join(filter(None, [u.first_name, p.last_name])) or "unknown"
-    lines = []
-    if users.is_admin(u):
-        lines.append("- Role: BOT ADMINISTRATOR (verified by the server from their Telegram ID)")
-    lines.append(f"- Name in Telegram: {name}" + (f" (@{u.username})" if u.username else ""))
+    lines = [f"- Name in Telegram: {name}" + (f" (@{u.username})" if u.username else "")]
     if p.moodle_name:
         lines.append(f"- Full name in Moodle: {p.moodle_name}")
     if p.faculty:
@@ -127,9 +124,17 @@ async def context(u: User) -> str:
     lines.append(f"- Uses UWED Pulse since {u.created_at.astimezone(tz):%Y-%m-%d}")
     if p.memory_on and p.memory:
         lines.append("- Remembered from earlier chats:\n" + "\n".join(f"  - {f}" for f in p.memory))
-    if users.is_admin(u):
-        lines.append(await _bot_stats())
     return "\n".join(lines)
+
+
+async def session(u: User) -> str:
+    """Server-verified facts about who is chatting (the <session> block, outside the data blocks)."""
+    if users.is_admin(u):
+        return (
+            f"Verified by the server: this person IS a bot ADMINISTRATOR (Telegram ID {u.id} is on the admin "
+            "list). Follow <administrators>: the student restrictions are lifted.\n" + await _bot_stats()
+        )
+    return "Verified by the server: this person is a student, not an administrator."
 
 
 async def _bot_stats() -> str:
@@ -138,7 +143,7 @@ async def _bot_stats() -> str:
 
     st = await stats()
     return (
-        f"- Bot right now: {st['users']} users, {st['linked']} with Moodle connected, "
+        f"Bot right now: {st['users']} users, {st['linked']} with Moodle connected, "
         f"{st['active_week']} active in 7 days, {st['new_day']} new in 24 h, {st['blocked']} blocked the bot; "
         f"{st['ai_questions_day']} AI questions and {st['reminders_day']} reminders in 24 h; "
         f"{st['upcoming_deadlines']} upcoming deadlines tracked; {st['support_unread']} unread student chats"

@@ -289,6 +289,7 @@ async def _prepare(user: User, question: str, media: list[Media]) -> tuple[str, 
     system = (
         rt.CORE_PROMPT
         + MEDIA_HINT
+        + f"\n\n<session>\n{await profile.session(u)}\n</session>"
         + f"\n\n<admin_notes>\n{rt.get('ai_system_prompt')}\n</admin_notes>\n\n"
         + f"Current time (Tashkent): {now_local:%Y-%m-%d %H:%M}. Student's interface language: {u.lang}.\n\n"
         + f"<knowledge_base>\n{knowledge}\n</knowledge_base>\n\n"
