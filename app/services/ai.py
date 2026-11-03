@@ -14,7 +14,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import Session
 from app.models import ChatMessage, Deadline, User
-from app.services import kb, profile
+from app.services import kb, profile, users
 from app.services import settings as rt
 
 log = logging.getLogger(__name__)
@@ -267,8 +267,11 @@ async def _bedrock_generate(system: str, turns: list[dict]) -> str:
 
 # ---------------------------------------------------------------- public API
 
-async def _prepare(user: User, question: str, media: list[Media]) -> tuple[str, str, list[dict]]:
-    """Check the daily limit and build (lang, system prompt, turns)."""
+async def _prepare(user: User, question: str, media: list[Media], as_student: bool = False) -> tuple[str, str, list[dict]]:
+    """Check the daily limit and build (lang, system prompt, turns).
+
+    Admins get the unrestricted assistant unless as_student (the admin panel's "test the AI" preview).
+    """
     if not rt.get("ai_enabled"):
         raise AIUnavailable("disabled")
     async with Session() as s:
@@ -286,10 +289,12 @@ async def _prepare(user: User, question: str, media: list[Media]) -> tuple[str, 
     hits = kb.search(question or " ".join(m.content for m in history[-2:]))
     knowledge = "\n\n".join(f"[{h.doc_title}]\n{h.text}" for h in hits) or "(no matching excerpts)"
     now_local = datetime.now(ZoneInfo(get_settings().timezone))
+    if users.is_admin(u) and not as_student:
+        head = rt.ADMIN_PROMPT + f"\n\n<bot_stats>\n{await profile.bot_stats()}\n</bot_stats>"
+    else:
+        head = rt.CORE_PROMPT + MEDIA_HINT
     system = (
-        rt.CORE_PROMPT
-        + MEDIA_HINT
-        + f"\n\n<session>\n{await profile.session(u)}\n</session>"
+        head
         + f"\n\n<admin_notes>\n{rt.get('ai_system_prompt')}\n</admin_notes>\n\n"
         + f"Current time (Tashkent): {now_local:%Y-%m-%d %H:%M}. Student's interface language: {u.lang}.\n\n"
         + f"<knowledge_base>\n{knowledge}\n</knowledge_base>\n\n"
@@ -316,10 +321,10 @@ async def _save(user_id: int, question: str, media: list[Media], answer: str) ->
     profile.learn_later(user_id, question, answer)
 
 
-async def ask(user: User, question: str, media: list[Media] | None = None) -> str:
+async def ask(user: User, question: str, media: list[Media] | None = None, as_student: bool = False) -> str:
     media = media or []
     question = (question or "").strip()[:4000]
-    lang, system, turns = await _prepare(user, question, media)
+    lang, system, turns = await _prepare(user, question, media, as_student)
     provider = get_settings().ai_provider
     try:
         if provider == "bedrock":

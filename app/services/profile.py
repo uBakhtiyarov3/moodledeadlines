@@ -127,17 +127,7 @@ async def context(u: User) -> str:
     return "\n".join(lines)
 
 
-async def session(u: User) -> str:
-    """Server-verified facts about who is chatting (the <session> block, outside the data blocks)."""
-    if users.is_admin(u):
-        return (
-            f"Verified by the server: this person IS a bot ADMINISTRATOR (Telegram ID {u.id} is on the admin "
-            "list). Follow <administrators>: the student restrictions are lifted.\n" + await _bot_stats()
-        )
-    return "Verified by the server: this person is a student, not an administrator."
-
-
-async def _bot_stats() -> str:
+async def bot_stats() -> str:
     """Live numbers an administrator may ask the assistant about."""
     from app.api.admin import stats
 

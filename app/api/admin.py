@@ -298,7 +298,7 @@ class AskIn(BaseModel):
 async def ai_test(body: AskIn, me: User = Depends(admin_user)):
     hits = kb.search(body.message)
     try:
-        answer = await ai.ask(me, body.message)
+        answer = await ai.ask(me, body.message, as_student=True)  # preview what students get
     except ai.AIUnavailable as e:
         raise HTTPException(503, e.code) from e
     return {
