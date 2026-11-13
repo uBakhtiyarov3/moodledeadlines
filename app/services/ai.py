@@ -351,7 +351,12 @@ async def _prepare(user: User, question: str, media: list[Media], as_student: bo
     knowledge = "\n\n".join(f"[{h.doc_title}]\n{h.text}" for h in hits) or "(no matching excerpts)"
     now_local = datetime.now(ZoneInfo(get_settings().timezone))
     if users.is_admin(u) and not as_student:
-        head = rt.ADMIN_PROMPT + f"\n\n<bot_stats>\n{await profile.bot_stats()}\n</bot_stats>"
+        from app.bot.keyboards import app_url
+
+        head = (rt.ADMIN_PROMPT + f"\n\n<bot_stats>\n{await profile.bot_stats()}\n</bot_stats>"
+                + f"\n\nThis admin's Telegram ID (= chat_id of your chat with them): {u.id}. "
+                + f"Mini App URLs: students {app_url()} (sections via ?p=deadlines|ai|support|settings), "
+                + f"admin panel {app_url('admin')}.")
     else:
         head = rt.CORE_PROMPT + MEDIA_HINT
     system = (

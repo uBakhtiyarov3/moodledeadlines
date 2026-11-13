@@ -29,6 +29,7 @@ class Ctx:
     bot: Bot | None = None
     scheduled: bool = False  # running a scheduled task: read-only tools only
     pending: list[dict] = field(default_factory=list)  # actions shown with ✅/❌ buttons
+    buttons: list[dict] = field(default_factory=list)  # inline buttons for the reply (reply_buttons)
     done: list[str] = field(default_factory=list)  # tool names that ran
 
 
@@ -88,7 +89,7 @@ async def call(ctx: Ctx, name: str, args: dict) -> dict:
     if t is None or (t.admin and not users.is_admin(ctx.user)) or (ctx.scheduled and not t.readonly):
         return {"error": f"tool {name} is not available here"}
     args = dict(args or {})
-    if t.confirm and (summary := t.confirm(args)):
+    if t.confirm and rt.get("agent_confirm") and (summary := t.confirm(args)):
         async with Session() as s:
             row = PendingAction(user_id=ctx.user.id, tool=name, args=args, summary=summary)
             s.add(row)
@@ -254,7 +255,82 @@ async def search_knowledge(ctx: Ctx, query: str):
     return {"results": [{"doc": h.doc_title, "text": h.text} for h in kb.search(query)]}
 
 
+# ================================================================ Telegram UI (everyone)
+
+APP_SECTIONS = ("deadlines", "ai", "support", "settings", "connect")
+
+
+@tool("reply_buttons",
+      "Put inline buttons under your reply in Telegram (use whenever choices or next steps make sense: "
+      "quick answers, options, quiz answers, 'show more', links). action=say: tapping sends `value` (or the "
+      "button text) to you as the person's next message; action=url: opens a https link; action=app: opens "
+      "a section of the bot's Mini App (deadlines | ai | support | settings | connect). Buttons with the "
+      "same row number share a row. Call once per reply, with all buttons.",
+      {"buttons": {"type": "array", "description": "max 12", "items": {"type": "object", "properties": {
+          "text": S("button label, short, may start with an emoji"),
+          "action": S("say | url | app", enum=["say", "url", "app"]),
+          "value": S("say: message to send (default = text); url: link; app: section"),
+          "style": S("optional colour: primary | success | danger", enum=["primary", "success", "danger"]),
+          "row": I("row number, from 0")}, "required": ["text", "action"]}}},
+      required=("buttons",), readonly=True)
+async def reply_buttons(ctx: Ctx, buttons: list):
+    clean = []
+    for b in (buttons or [])[:12]:
+        text, action = str(b.get("text", "")).strip()[:64], b.get("action")
+        value = str(b.get("value") or "").strip()
+        if not text or action not in ("say", "url", "app"):
+            continue
+        if action == "url" and not value.startswith(("https://", "http://", "tg://")):
+            continue
+        if action == "app" and value not in APP_SECTIONS:
+            value = "deadlines"
+        clean.append({"text": text, "action": action, "value": value or text,
+                      "style": b.get("style") if b.get("style") in ("primary", "success", "danger") else None,
+                      "row": int(b.get("row") or 0)})
+    ctx.buttons = clean
+    return {"ok": True, "buttons": len(clean), "note": "They will appear under your reply."}
+
+
 # ================================================================ admin tools
+
+@tool("telegram_api",
+      "Call ANY Telegram Bot API method as the bot (Bot API 10.3): send any kind of message (rich messages, "
+      "photos by URL/file_id, polls, dice…) with inline keyboards to any chat or channel the bot can reach, "
+      "edit/delete/pin/forward/copy messages, reactions, chat and member management where the bot is admin, "
+      "invite links, forum topics, the bot's own name/description/commands/menu button, stars, gifts, "
+      "stories… `method` is the API name (e.g. sendMessage, setMyDescription); `params` its JSON "
+      "parameters. Look up exact params with telegram_api_reference first if unsure.",
+      {"method": S("Bot API method name, e.g. sendRichMessage"),
+       "params": S('the parameters as a JSON object, e.g. {"chat_id": 123, "text": "Hi"}')},
+      required=("method",), admin=True)
+async def telegram_api(ctx: Ctx, method: str, params: str | dict | None = None):
+    import json
+
+    from app.services import tgapi
+
+    if not ctx.bot:
+        return {"error": "the bot is not available here"}
+    if params is None:
+        params = {}
+    if isinstance(params, str):  # Gemini can't declare a free-form object, so params come as JSON text
+        try:
+            params = json.loads(params or "{}")
+        except ValueError as e:
+            return {"error": f"params is not valid JSON: {e}"}
+    if not isinstance(params, dict):
+        return {"error": "params must be a JSON object"}
+    return await tgapi.call(ctx.bot, method, params)
+
+
+@tool("telegram_api_reference",
+      "Exact parameters and types of a Bot API method (give its name), or methods matching a word "
+      "(e.g. 'pin', 'topic', 'description').",
+      {"query": S("method name or keyword")}, required=("query",), admin=True, readonly=True)
+async def telegram_api_reference(ctx: Ctx, query: str):
+    from app.services import tgapi
+
+    return tgapi.reference(query)
+
 
 @tool("bot_stats", "Live bot statistics.", admin=True, readonly=True)
 async def bot_stats(ctx: Ctx):
@@ -457,6 +533,7 @@ def _settings_summary(a: dict) -> str | None:
       "Change bot-wide settings. Pass only what changes. default_offsets are minutes (from allowed_offsets).",
       {"ai_enabled": B("AI on/off for everyone"), "tts_enabled": B("voice replies on/off"),
        "maintenance": B("maintenance mode: only admins can use the bot"),
+       "agent_confirm": B("ask the admin for ✅ before broadcasts, bans, deletions, switching off"),
        "ai_daily_limit": I("AI questions per student per day"),
        "ai_system_prompt": S("extra instructions for the AI (admin notes), full new text"),
        "default_offsets": {"type": "array", "items": {"type": "integer"}, "description": "reminders for new students"}},

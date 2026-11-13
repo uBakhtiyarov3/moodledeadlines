@@ -279,6 +279,8 @@ async def put_settings(values: dict):
         clean["tts_enabled"] = bool(values["tts_enabled"])
     if "maintenance" in values:
         clean["maintenance"] = bool(values["maintenance"])
+    if "agent_confirm" in values:
+        clean["agent_confirm"] = bool(values["agent_confirm"])
     if "ai_daily_limit" in values:
         clean["ai_daily_limit"] = max(0, min(int(values["ai_daily_limit"]), 1000))
     if "ai_system_prompt" in values:

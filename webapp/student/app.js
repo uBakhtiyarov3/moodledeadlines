@@ -281,12 +281,33 @@
       const r = await api("/api/ai", { body });
       typing.remove(); bubble(r.html);
       (r.actions || []).forEach(actionCard);
+      if ((r.buttons || []).length) replyButtons(r.buttons);
       me.ai_left = Math.max(0, me.ai_left - 1); renderAiLeft();
     } catch (e) {
       typing.remove();
       bubble("⚠️ " + esc(t({ limit: "ai_limit", disabled: "ai_disabled", busy: "ai_busy", unsupported: "unsupported" }[e.detail] || "ai_error")));
     }
   }
+  // buttons the assistant put under its reply: say → next message, url → link, app → section
+  function replyButtons(buttons) {
+    const box = document.createElement("div");
+    box.className = "suggest reply-btns";
+    buttons.forEach((b) => {
+      const el = document.createElement("button");
+      el.className = "pill" + (b.style ? " " + b.style : "");
+      el.textContent = b.text;
+      el.onclick = () => {
+        if (b.action === "url") return openLink(b.value);
+        if (b.action === "app") return show(b.value === "ai" ? "ai" : b.value);
+        box.remove();
+        $("#ai-input").value = b.value; send();
+      };
+      box.appendChild(el);
+    });
+    $("#chat").appendChild(box);
+    box.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
   // an action the assistant prepared (broadcast, ban…) runs only after ✅
   function actionCard(a) {
     const el = bubble(`<b>⚠️ ${esc(t("act_confirm"))}</b><br><br>${a.html}

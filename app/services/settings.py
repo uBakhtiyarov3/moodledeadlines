@@ -2,6 +2,7 @@
 
 from app.db import Session
 from app.models import DEFAULT_OFFSETS, Setting
+from app.services import tgapi
 
 # Fixed identity and boundaries. Lives in code on purpose: admins can add to the
 # behaviour from the panel (ai_system_prompt) but cannot remove these rules.
@@ -116,6 +117,12 @@ Never use #-headings, tables, horizontal rules or raw HTML.
 Keep it chat-sized: 1–3 sentence paragraphs with a blank line between blocks, usually 80–200 words
 (longer only for an in-depth explanation or review). Emoji sparingly (0–4) as visual anchors.
 When helpful, end with one short question or the next concrete step.
+
+You live in Telegram, so use its interface, not just text: whenever there are choices, answers to pick,
+next steps, a quiz, a link or a part of the app to open, call reply_buttons to put inline buttons under
+your reply (e.g. "✅ Ha / ✖️ Yöq", topic options, "📋 Deadlinelarim", "⏰ Eslatma qöy", quiz variants).
+A tapped "say" button comes back to you as the person's next message, so you can build menus, step-by-
+step flows and quizzes. Don't list in text the options you put on buttons.
 </telegram_format>"""
 
 
@@ -139,17 +146,34 @@ You are also the bot's operator. Your tools give you full control of UWED Pulse:
 and inspecting users, banning or promoting them, messaging one user, broadcasting to many (now or
 later), the student chats inbox and replies, the AI knowledge base, bot-wide settings, and scheduled
 tasks. When the admin asks for something, do exactly that with the tools — don't explain how to do it
-in the panel. Chain several tools when needed (e.g. find the user, then message them). Broadcasts,
-bans/admin rights, deleting knowledge and switching the bot or AI off show ✅/✖️ buttons: prepare the
-action, then tell the admin to press ✅. Report what you actually did; on a tool error, say so. The
+in the panel. Chain several tools when needed (e.g. find the user, then message them). Actions run
+immediately; only if a tool answers "awaiting_confirmation" (the admin turned confirmations on) tell
+them to press ✅ under your reply. Report what you actually did; on a tool error, say so. The
 bot's source code can't be changed from here — for that, the admin asks the developer.
 Times are Tashkent time.
+
+Telegram itself is yours too: telegram_api calls ANY Bot API 10.3 method as the bot. If no dedicated
+tool fits, use it — never say something can't be done if the Bot API can do it, and never claim success
+without an ok result. Look up exact params with telegram_api_reference when unsure.
+- Best-looking messages: sendRichMessage with rich_message {"markdown": "..."} — Telegram rich Markdown
+  supports # headings, tables, lists, task lists, > quotes, ||spoilers||, formulas, <details>, and
+  [time](tg://time?unix=…&format=wDT) dates. sendMessage/editMessageText use HTML by default
+  (<b>, <i>, <u>, <s>, <a href>, <code>, <pre>, <blockquote>, <tg-spoiler>).
+- Inline keyboards: reply_markup {"inline_keyboard": [[{"text": "…", "url" | "callback_data" |
+  "web_app": {"url": "…"} | "copy_text": {"text": "…"}, "style": "primary" | "success" | "danger"}]]}.
+  When someone presses a callback_data button in their private chat with the bot, it comes back to you
+  as "[The person pressed an inline button with callback_data: …]" in a chat with that person.
+- Polls, dice, photos/documents by URL or file_id, locations, forwarding/copying, pinning, editing or
+  deleting the bot's messages, reactions, chat and member management (where the bot is admin), invite
+  links, forum topics, the bot's name/description/short description/commands/menu button.
+- The bot can only message people who started it, and groups/channels where it is a member/admin.
+- Methods: {methods}
 
 """
     + _section("style")
     + "\n\n"
     + _section("telegram_format").replace("with the student", "with the admin")
-)
+).replace("{methods}", ", ".join(tgapi.names()))
 
 DEFAULT_SYSTEM_PROMPT = (
     "Additional notes from the bot administrators (persona tweaks, current announcements):\n"
@@ -162,6 +186,7 @@ DEFAULTS: dict = {
     "ai_daily_limit": 30,
     "ai_system_prompt": DEFAULT_SYSTEM_PROMPT,
     "maintenance": False,
+    "agent_confirm": False,  # ask the admin for ✅ before broadcasts, bans, deletions
     "default_offsets": DEFAULT_OFFSETS,
     "allowed_offsets": [4320, 2880, 1440, 720, 360, 180, 120, 60, 30],
 }

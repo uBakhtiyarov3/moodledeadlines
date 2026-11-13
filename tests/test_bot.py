@@ -277,3 +277,31 @@ def test_uzbek_texts_use_new_alphabet():
     assert not [s for s in plain if old.search(s)]
     # speech still gets the current official spelling
     assert tts.speakable("Öqituvçi şu yerda ğalaba") == "Oʻqituvchi shu yerda gʻalaba"
+
+
+async def test_agent_buttons_in_telegram(tg, monkeypatch):
+    """Buttons the assistant asks for appear under its reply; tapping one is the next message."""
+    from app.services import ai
+
+    asked = []
+
+    async def fake_stream(user, q, media=None, ctx=None, **kw):
+        asked.append(q)
+        if ctx is not None and q == "quiz":
+            ctx.buttons = [{"text": "A) 1991", "action": "say", "value": "Javobim: 1991", "style": None, "row": 0},
+                           {"text": "🌐 UWED", "action": "url", "value": "https://uwed.uz", "style": "primary", "row": 1}]
+        yield "Savol: Özbekiston mustaqilligi qaçon?"
+
+    monkeypatch.setattr(ai, "ask_stream", fake_stream)
+    await tg("/start", uid=920)
+    out = await tg("quiz", uid=920)
+    final = [c for c in out if type(c).__name__ == "SendRichMessage"][-1]
+    rows = final.reply_markup.inline_keyboard
+    assert rows[0][0].callback_data.startswith("say:") and rows[1][0].url == "https://uwed.uz"
+
+    out = await tg(callback=rows[0][0].callback_data, uid=920)
+    assert asked[-1] == "Javobim: 1991" and any("› Javobim: 1991" in (t or "") for t in texts(out))
+
+    # a button the admin agent put on some message → the assistant gets told what was pressed
+    await tg(callback="poll:yes", uid=920)
+    assert asked[-1] == "[The person pressed an inline button with callback_data: poll:yes]"

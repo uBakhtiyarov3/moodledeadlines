@@ -6,7 +6,7 @@ import httpx
 from aiogram import BaseMiddleware, F, Router
 from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandStart, Filter
-from aiogram.types import BufferedInputFile, CallbackQuery, ReactionTypeEmoji, InlineKeyboardButton, InlineKeyboardMarkup, Message, TelegramObject
+from aiogram.types import BufferedInputFile, CallbackQuery, ReactionTypeEmoji, InlineKeyboardButton, InlineKeyboardMarkup, Message, TelegramObject, WebAppInfo
 from sqlalchemy import delete, select
 
 from app.bot import rich
@@ -14,7 +14,7 @@ from app.bot.keyboards import admin_kb, lang_kb, main_kb, open_app_kb
 from app.config import get_settings
 from app.db import Session
 from app.i18n import LEGACY_BUTTONS, T, humanize_left, t
-from app.models import ChatMessage, Deadline, User
+from app.models import AgentButton, ChatMessage, Deadline, User
 from app.moodle.ical import IcalUrlError
 from app.services import agent, ai, linking, support, tts, users
 from app.services import settings as rt
@@ -345,7 +345,7 @@ async def _answer_ai(message: Message, user: User, text: str, media: list | None
     except ai.AIUnavailable as e:
         await say(message, t(AI_ERRORS.get(e.code, "ai_error"), user.lang))
         return
-    await rich.send(message.bot, message.chat.id, answer.strip() or "…")
+    await rich.send(message.bot, message.chat.id, answer.strip() or "…", await buttons_kb(user, ctx.buttons))
     for action in ctx.pending:  # high-impact actions wait for a ✅
         await rich.send(message.bot, message.chat.id,
                         f"### ⚠️ {t('act_confirm_title', user.lang)}\n\n{action['summary']}", confirm_kb(action["id"], user.lang))
@@ -355,6 +355,42 @@ async def _answer_ai(message: Message, user: User, text: str, media: list | None
         ogg = await tts.synthesize(answer)
         if ogg:
             await message.answer_voice(BufferedInputFile(ogg, "pulse.ogg"))
+
+
+async def buttons_kb(user: User, buttons: list[dict]) -> InlineKeyboardMarkup | None:
+    """The inline keyboard the assistant asked for (reply_buttons)."""
+    from app.bot.keyboards import app_enabled, app_url
+
+    rows: dict[int, list] = {}
+    async with Session() as s:
+        for b in buttons:
+            extra = {"style": b["style"]} if b.get("style") else {}
+            if b["action"] == "url":
+                btn = InlineKeyboardButton(text=b["text"], url=b["value"], **extra)
+            elif b["action"] == "app":
+                if not app_enabled():
+                    continue
+                btn = InlineKeyboardButton(text=b["text"], web_app=WebAppInfo(url=app_url() + f"?p={b['value']}"), **extra)
+            else:
+                row = AgentButton(user_id=user.id, text=b["value"][:2000])
+                s.add(row)
+                await s.flush()
+                btn = InlineKeyboardButton(text=b["text"], callback_data=f"say:{row.id}", **extra)
+            rows.setdefault(b.get("row", 0), []).append(btn)
+        await s.commit()
+    return InlineKeyboardMarkup(inline_keyboard=[rows[k] for k in sorted(rows)]) if rows else None
+
+
+@router.callback_query(F.data.startswith("say:"))
+async def say_button(cb: CallbackQuery, user: User):
+    """A quick-reply button from the assistant: tapping it is the person's next message."""
+    async with Session() as s:
+        row = await s.get(AgentButton, int(cb.data.split(":")[1]))
+    await cb.answer()
+    if not row or not cb.message or cb.message.chat.type != "private":
+        return
+    await rich.send(cb.bot, cb.message.chat.id, f"› {rich.esc(row.text[:300])}")
+    await _answer_ai(cb.message, user, row.text)
 
 
 def confirm_kb(action_id: int, lang: str) -> InlineKeyboardMarkup:
@@ -455,3 +491,11 @@ def split_message(text: str, limit: int = 3500) -> list[str]:
     if cur:
         parts.append(cur)
     return parts or [text]
+
+
+@router.callback_query()
+async def other_button(cb: CallbackQuery, user: User):
+    """Any other button (e.g. one the admin agent put on a message it sent): let the assistant handle it."""
+    await cb.answer()
+    if cb.message and cb.data and cb.message.chat.type == "private":  # never answer into groups/channels
+        await _answer_ai(cb.message, user, f"[The person pressed an inline button with callback_data: {cb.data[:64]}]")

@@ -10,7 +10,8 @@ from tests.test_api import auth, client  # noqa: F401,I001  (first: it sets the 
 from app.config import get_settings
 from app.db import Session
 from app.models import Broadcast, PendingAction, Task, User
-from app.services import agent, ai, profile, tasks
+from app.services import agent, ai, profile, tasks, tgapi
+from app.services import settings as rt
 
 
 def sse(*parts) -> httpx.Response:
@@ -82,6 +83,7 @@ async def test_admin_broadcast_waits_for_confirmation(client, gemini, monkeypatc
         ran.append(bid)
 
     monkeypatch.setattr(bc, "run", fake_run)
+    monkeypatch.setitem(rt._cache, "agent_confirm", True)  # the admin turned confirmations on
     script, sent = gemini
     script += [sse({"functionCall": {"name": "broadcast", "args": {"text": "**Diqqat!** Ertaga dars yöq.", "langs": ["uz"]}}}),
                sse({"text": "Tayyor — ✅ ni bosing."})]
@@ -205,3 +207,70 @@ async def test_bot_confirm_button(client, monkeypatch):  # noqa: F811
     assert any(type(c).__name__ == "SendRichMessage" and "Bajarildi" in c.rich_message.markdown for c in calls)
     async with Session() as s:
         assert (await s.get(PendingAction, row.id)).status == "done"
+
+
+async def test_admin_orders_run_straight_away(client, gemini, monkeypatch):  # noqa: F811
+    """By default an admin's order is simply done — no confirmation step."""
+    from app.services import broadcast as bc
+
+    ran = []
+
+    async def fake_run(bot, bid):
+        ran.append(bid)
+
+    monkeypatch.setattr(bc, "run", fake_run)
+    script, _ = gemini
+    script += [sse({"functionCall": {"name": "broadcast", "args": {"text": "Salom hammaga"}}}),
+               sse({"text": "Yuborildi."})]
+    r = await client.post("/api/ai", headers=auth(1, "Boss"), json={"message": "hammaga salom yoz"})
+    assert r.json()["answer"] == "Yuborildi." and r.json()["actions"] == [] and len(ran) == 1
+
+
+async def test_reply_buttons_in_mini_app(client, gemini):  # noqa: F811
+    script, _ = gemini
+    script += [sse({"functionCall": {"name": "reply_buttons", "args": {"buttons": [
+                   {"text": "✅ Ha", "action": "say", "value": "Ha, tushundim", "style": "success"},
+                   {"text": "Sayt", "action": "url", "value": "https://uwed.uz", "row": 1},
+                   {"text": "bad", "action": "url", "value": "javascript:alert(1)"}]}}}),
+               sse({"text": "Tushundingizmi?"})]
+    r = await client.post("/api/ai", headers=auth(304), json={"message": "test"})
+    assert r.json()["buttons"] == [
+        {"text": "✅ Ha", "action": "say", "value": "Ha, tushundim", "style": "success", "row": 0},
+        {"text": "Sayt", "action": "url", "value": "https://uwed.uz", "style": None, "row": 1}]
+
+
+async def test_telegram_api_tool(client):  # noqa: F811
+    from aiogram.methods import SendMessage, SetMyDescription
+
+    await client.get("/api/me", headers=auth(1, "Boss"))
+    await client.get("/api/me", headers=auth(305))
+    async with Session() as s:
+        admin, student = await s.get(User, 1), await s.get(User, 305)
+
+    class Recorder(FakeBot):
+        async def __call__(self, method, request_timeout=None):
+            self.sent.append(method)
+            if isinstance(method, SendMessage):
+                from aiogram.types import Chat, Message
+
+                return Message(message_id=7, date=datetime.now(timezone.utc), chat=Chat(id=method.chat_id, type="private"), text=method.text)
+            return True
+
+    bot = Recorder()
+    ctx = agent.Ctx(user=admin, bot=bot)
+    r = await agent.call(ctx, "telegram_api", {"method": "sendMessage", "params": json.dumps({
+        "chat_id": 305, "text": "Salom", "reply_markup": {"inline_keyboard": [[{"text": "OK", "callback_data": "ok"}]]}})})
+    assert r["ok"] and r["result"]["message_id"] == 7
+    assert bot.sent[-1].reply_markup.inline_keyboard[0][0].callback_data == "ok"
+    r = await agent.call(ctx, "telegram_api", {"method": "setmydescription", "params": {"description": "UWED Pulse"}})
+    assert r["ok"] and isinstance(bot.sent[-1], SetMyDescription)
+    assert "bad params" in (await agent.call(ctx, "telegram_api", {"method": "sendMessage", "params": "{}"}))["error"]
+    assert "not allowed" in (await agent.call(ctx, "telegram_api", {"method": "logOut"}))["error"]
+    assert "not valid JSON" in (await agent.call(ctx, "telegram_api", {"method": "getMe", "params": "{x"}))["error"]
+    # students can't reach the Bot API
+    assert "not available" in (await agent.call(agent.Ctx(user=student, bot=bot), "telegram_api", {"method": "getMe"}))["error"]
+
+    ref = tgapi.reference("sendRichMessage")
+    assert "rich_message: InputRichMessage" in ref["params"] and "markdown: str (optional)" in ref["types"]["InputRichMessage"]["fields"]
+    assert any(m["method"] == "pinChatMessage" for m in tgapi.reference("pin")["matches"])
+    assert "sendRichMessageDraft" in tgapi.names() and "logOut" not in tgapi.names()

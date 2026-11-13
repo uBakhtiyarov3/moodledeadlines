@@ -243,3 +243,14 @@ class PendingAction(Base):
     summary: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | done | cancelled | failed
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class AgentButton(Base):
+    """A quick-reply button the assistant put under a message: tapping it 'says' this text."""
+
+    __tablename__ = "agent_buttons"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)

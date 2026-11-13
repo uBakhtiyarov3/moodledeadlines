@@ -191,7 +191,7 @@ async def ask(body: AskIn, user: User = Depends(current_user), b=Depends(bot)):
     except ai.AIUnavailable as e:
         raise HTTPException(429 if e.code in ("limit", "busy") else 503, e.code) from e
     actions = [{"id": a["id"], "html": markdown_to_tg(a["summary"])} for a in ctx.pending]
-    return {"answer": answer, "html": markdown_to_tg(answer), "actions": actions}
+    return {"answer": answer, "html": markdown_to_tg(answer), "actions": actions, "buttons": ctx.buttons}
 
 
 class ActionIn(BaseModel):
