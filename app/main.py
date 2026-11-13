@@ -20,7 +20,7 @@ from app.bot.handlers import UserMiddleware, router
 from app.bot.keyboards import app_url
 from app.config import get_settings
 from app.db import init_db
-from app.services import kb
+from app.services import kb, tasks
 from app.services import settings as rt
 from app.services.reminders import dispatch_due_reminders
 from app.services.sync import sync_all
@@ -54,6 +54,7 @@ async def lifespan(app: FastAPI):
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(dispatch_due_reminders, "interval", minutes=1, args=[bot], max_instances=1, coalesce=True)
     scheduler.add_job(sync_all, "interval", minutes=5, max_instances=1, coalesce=True)
+    scheduler.add_job(tasks.dispatch_due, "interval", minutes=1, args=[bot], max_instances=1, coalesce=True)
 
     polling = None
     if settings.run_bot and settings.bot_token:

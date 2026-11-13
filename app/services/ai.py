@@ -14,7 +14,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import Session
 from app.models import ChatMessage, Deadline, User
-from app.services import kb, profile, users
+from app.services import agent, kb, profile, users
 from app.services import settings as rt
 
 log = logging.getLogger(__name__)
@@ -91,9 +91,8 @@ def _http() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=httpx.Timeout(45, connect=10))
 
 
-def _gemini_body(system: str, turns: list[dict], thinking: bool = True) -> dict:
-    """turns: [{"role": "user"|"assistant", "text": str, "media": [Media]}]"""
-    st = get_settings()
+def _contents(turns: list[dict]) -> list[dict]:
+    """turns: [{"role": "user"|"assistant", "text": str, "media": [Media]}] → Gemini contents."""
     contents = []
     for turn in turns:
         parts = [{"inline_data": {"mime_type": m.mime, "data": base64.b64encode(m.data).decode()}} for m in turn.get("media", [])]
@@ -104,13 +103,21 @@ def _gemini_body(system: str, turns: list[dict], thinking: bool = True) -> dict:
             contents[-1]["parts"].extend(parts)
         else:
             contents.append({"role": role, "parts": parts})
+    return contents
+
+
+def _gemini_body(system: str, turns: list[dict] | None, thinking: bool = True,
+                 contents: list[dict] | None = None, tools: list[dict] | None = None) -> dict:
+    st = get_settings()
     body = {
         "system_instruction": {"parts": [{"text": system}]},
-        "contents": contents,
+        "contents": contents if contents is not None else _contents(turns or []),
         "generationConfig": {"maxOutputTokens": st.gemini_max_tokens},
     }
     if thinking and st.gemini_thinking_level:
         body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": st.gemini_thinking_level}
+    if tools:
+        body["tools"] = [{"functionDeclarations": tools}]
     return body
 
 
@@ -186,7 +193,14 @@ async def quick_json(system: str, text: str) -> dict | None:
 
 
 async def _gemini_stream(system: str, turns: list[dict]):
-    """Yield answer text chunks as Gemini generates them (server-sent events).
+    """Yield answer text chunks as Gemini generates them (no tools)."""
+    async for part in _gemini_parts(system, _contents(turns)):
+        if part.get("text") and not part.get("thought"):
+            yield part["text"]
+
+
+async def _gemini_parts(system: str, contents: list[dict], tools: list[dict] | None = None):
+    """Yield the raw content parts (text, functionCall, thought signatures) as Gemini streams them.
 
     Falls back to the next model only before anything was streamed.
     """
@@ -201,7 +215,7 @@ async def _gemini_stream(system: str, turns: list[dict]):
             for thinking in (True, False):
                 try:
                     async with c.stream("POST", url.format(model=model), headers=headers,
-                                        json=_gemini_body(system, turns, thinking)) as r:
+                                        json=_gemini_body(system, None, thinking, contents, tools)) as r:
                         last_status = r.status_code
                         if r.status_code != 200:
                             err = (await r.aread()).decode(errors="ignore")
@@ -216,9 +230,9 @@ async def _gemini_stream(system: str, turns: list[dict]):
                                 payload = json.loads(line[5:])
                             except ValueError:
                                 continue
-                            chunk = _texts(payload)
-                            if chunk:
-                                yield chunk
+                            cands = payload.get("candidates") or []
+                            for part in ((cands[0].get("content") or {}).get("parts") or []) if cands else []:
+                                yield part
                         return
                 except httpx.TimeoutException:
                     log.warning("gemini stream %s timeout", model)
@@ -229,6 +243,52 @@ async def _gemini_stream(system: str, turns: list[dict]):
     if last_status in (402, *RETRYABLE):
         raise AIUnavailable("busy")
     raise AIUnavailable("error")
+
+
+@dataclass
+class Status:
+    """Progress shown while the agent runs a tool (not part of the answer)."""
+
+    text: str
+
+
+MAX_STEPS = 8
+
+
+async def _agent(system: str, turns: list[dict], ctx, tools: list[dict] | None):
+    """Stream the answer; when Gemini calls tools, run them and continue until it answers.
+
+    Yields text chunks and Status objects.
+    """
+    from app.i18n import t
+
+    contents = _contents(turns)
+    said = False
+    for step in range(MAX_STEPS):
+        parts, calls, gap = [], [], said
+        async for part in _gemini_parts(system, contents, tools if step < MAX_STEPS - 1 else None):
+            parts.append(part)
+            if part.get("functionCall"):
+                calls.append(part["functionCall"])
+            elif part.get("text") and not part.get("thought"):
+                if gap:
+                    yield "\n\n"
+                    gap = False
+                said = True
+                yield part["text"]
+        if not calls or not parts:
+            return
+        # the model's turn goes back verbatim: Gemini needs its thought signatures
+        contents.append({"role": "model", "parts": parts})
+        responses = []
+        for fc in calls:
+            yield Status(f"⚙️ {t('agent_working', ctx.user.lang)}")
+            result = await agent.call(ctx, fc.get("name", ""), fc.get("args") or {})
+            response = {"name": fc.get("name", ""), "response": result}
+            if fc.get("id"):
+                response["id"] = fc["id"]
+            responses.append({"functionResponse": response})
+        contents.append({"role": "user", "parts": responses})
 
 
 def client():
@@ -267,7 +327,8 @@ async def _bedrock_generate(system: str, turns: list[dict]) -> str:
 
 # ---------------------------------------------------------------- public API
 
-async def _prepare(user: User, question: str, media: list[Media], as_student: bool = False) -> tuple[str, str, list[dict]]:
+async def _prepare(user: User, question: str, media: list[Media], as_student: bool = False,
+                   scheduled: bool = False) -> tuple[str, str, list[dict]]:
     """Check the daily limit and build (lang, system prompt, turns).
 
     Admins get the unrestricted assistant unless as_student (the admin panel's "test the AI" preview).
@@ -296,7 +357,7 @@ async def _prepare(user: User, question: str, media: list[Media], as_student: bo
     system = (
         head
         + f"\n\n<admin_notes>\n{rt.get('ai_system_prompt')}\n</admin_notes>\n\n"
-        + f"Current time (Tashkent): {now_local:%Y-%m-%d %H:%M}. Student's interface language: {u.lang}.\n\n"
+        + f"Current time (Tashkent): {now_local:%Y-%m-%d %H:%M, %A}. Student's interface language: {u.lang}.\n\n"
         + f"<knowledge_base>\n{knowledge}\n</knowledge_base>\n\n"
         + f"<student_profile>\n{await profile.context(u)}\n</student_profile>\n\n"
         + f"<student_deadlines>\n{await _deadline_context(user.id)}\n</student_deadlines>"
@@ -304,6 +365,9 @@ async def _prepare(user: User, question: str, media: list[Media], as_student: bo
     turns = [{"role": m.role, "text": m.content} for m in history]
     while turns and turns[0]["role"] != "user":
         turns.pop(0)
+    if scheduled:
+        system += ("\n\nThis is a SCHEDULED TASK the person set up earlier; they are not chatting now. Do the "
+                   "instruction and write the result for them. Only read-only tools are available.")
     turns.append({"role": "user", "text": question, "media": media})
     return u.lang, system, turns
 
@@ -321,7 +385,12 @@ async def _save(user_id: int, question: str, media: list[Media], answer: str) ->
     profile.learn_later(user_id, question, answer)
 
 
-async def ask(user: User, question: str, media: list[Media] | None = None, as_student: bool = False) -> str:
+async def ask(user: User, question: str, media: list[Media] | None = None, as_student: bool = False,
+              ctx=None) -> str:
+    """The whole answer at once (Mini App). as_student: the admin panel's preview — no tools."""
+    if not as_student and get_settings().ai_provider == "gemini":
+        chunks = [c async for c in ask_stream(user, question, media, ctx=ctx)]
+        return "".join(c for c in chunks if isinstance(c, str)).strip()
     media = media or []
     question = (question or "").strip()[:4000]
     lang, system, turns = await _prepare(user, question, media, as_student)
@@ -341,21 +410,25 @@ async def ask(user: User, question: str, media: list[Media] | None = None, as_st
     return answer
 
 
-async def ask_stream(user: User, question: str, media: list[Media] | None = None):
-    """Like ask(), but yields the answer in chunks as it is generated (Gemini).
+async def ask_stream(user: User, question: str, media: list[Media] | None = None, ctx=None):
+    """The agent: yields the answer in chunks as it is generated, plus Status objects while tools run.
 
-    Raises AIUnavailable before the first chunk if the AI can't answer.
+    ctx (agent.Ctx) collects actions waiting for the person's ✅. Raises AIUnavailable before the
+    first chunk if the AI can't answer.
     """
     media = media or []
     question = (question or "").strip()[:4000]
     if get_settings().ai_provider == "bedrock":
         yield await ask(user, question, media)
         return
-    lang, system, turns = await _prepare(user, question, media)
+    ctx = ctx or agent.Ctx(user=user)
+    lang, system, turns = await _prepare(user, question, media, scheduled=ctx.scheduled)
+    tools = agent.declarations(ctx.user, scheduled=ctx.scheduled)
     answer = ""
     try:
-        async for chunk in _gemini_stream(system, turns):
-            answer += chunk
+        async for chunk in _agent(system, turns, ctx, tools):
+            if isinstance(chunk, str):
+                answer += chunk
             yield chunk
     except AIUnavailable:
         if answer:  # stream broke midway: keep what the student already saw
@@ -367,6 +440,13 @@ async def ask_stream(user: User, question: str, media: list[Media] | None = None
         if not answer:
             raise AIUnavailable("error")
     if not answer.strip():
-        answer = REFUSAL.get(lang, REFUSAL["en"])
+        answer = REFUSAL.get(lang, REFUSAL["en"]) if not (ctx.done or ctx.pending) else "✅"
         yield answer
     await _save(user.id, question, media, answer.strip())
+
+
+async def run_scheduled(user: User, instruction: str, bot) -> str:
+    """A scheduled agent task: run the instruction now (read-only tools) and return the answer."""
+    ctx = agent.Ctx(user=user, bot=bot, scheduled=True)
+    chunks = [c async for c in ask_stream(user, instruction, ctx=ctx)]
+    return "".join(c for c in chunks if isinstance(c, str)).strip()

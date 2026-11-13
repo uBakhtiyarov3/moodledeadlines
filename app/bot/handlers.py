@@ -16,7 +16,7 @@ from app.db import Session
 from app.i18n import LEGACY_BUTTONS, T, humanize_left, t
 from app.models import ChatMessage, Deadline, User
 from app.moodle.ical import IcalUrlError
-from app.services import ai, linking, support, tts, users
+from app.services import agent, ai, linking, support, tts, users
 from app.services import settings as rt
 
 router = Router()
@@ -337,20 +337,45 @@ MAX_FILE = 15 * 1024 * 1024
 
 async def _answer_ai(message: Message, user: User, text: str, media: list | None = None, voice: bool = False):
     """Stream the answer live as a rich draft, then send it as a rich message."""
+    ctx = agent.Ctx(user=user, bot=message.bot)
     try:
         answer = await rich.stream(
-            message.bot, message.chat.id, ai.ask_stream(user, text, media), thinking=t("thinking", user.lang)
+            message.bot, message.chat.id, ai.ask_stream(user, text, media, ctx=ctx), thinking=t("thinking", user.lang)
         )
     except ai.AIUnavailable as e:
         await say(message, t(AI_ERRORS.get(e.code, "ai_error"), user.lang))
         return
     await rich.send(message.bot, message.chat.id, answer.strip() or "…")
+    for action in ctx.pending:  # high-impact actions wait for a ✅
+        await rich.send(message.bot, message.chat.id,
+                        f"### ⚠️ {t('act_confirm_title', user.lang)}\n\n{action['summary']}", confirm_kb(action["id"], user.lang))
     # Asked by voice → also answer by voice (text first, so nobody waits for the audio)
     if voice and tts.enabled():
         await message.bot.send_chat_action(message.chat.id, ChatAction.RECORD_VOICE)
         ogg = await tts.synthesize(answer)
         if ogg:
             await message.answer_voice(BufferedInputFile(ogg, "pulse.ogg"))
+
+
+def confirm_kb(action_id: int, lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=t("act_yes", lang), callback_data=f"act:ok:{action_id}", style="success"),
+        InlineKeyboardButton(text=t("act_no", lang), callback_data=f"act:no:{action_id}", style="danger"),
+    ]])
+
+
+@router.callback_query(F.data.startswith("act:"))
+async def resolve_action(cb: CallbackQuery, user: User):
+    _, verdict, action_id = cb.data.split(":")
+    await cb.answer()
+    status, result = await agent.resolve(user, int(action_id), verdict == "ok", cb.bot)
+    key = {"done": "act_done", "cancelled": "act_cancelled", "expired": "act_expired"}.get(status, "act_failed")
+    note = t(key, user.lang)
+    if status == "failed" and result.get("error"):
+        note += f" — {rich.esc(str(result['error'])[:300])}"
+    if cb.message:
+        await cb.message.edit_reply_markup(reply_markup=None)
+        await rich.send(cb.bot, cb.message.chat.id, note)
 
 
 @router.message(F.text & ~F.text.startswith("/"))

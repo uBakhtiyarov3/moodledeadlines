@@ -12,7 +12,7 @@ from app.i18n import LANGS
 from app.models import ChatMessage, Deadline, User
 from app.moodle import ws
 from app.moodle.ical import IcalUrlError
-from app.services import ai, linking, profile, support, users
+from app.services import agent, ai, linking, profile, support, users
 from app.services import settings as rt
 from app.services.sync import sync_user
 from app.services.tg_html import markdown_to_tg
@@ -173,7 +173,7 @@ FILE_KINDS = {"image/jpeg": "image", "image/png": "image", "image/webp": "image"
 
 
 @router.post("/ai")
-async def ask(body: AskIn, user: User = Depends(current_user)):
+async def ask(body: AskIn, user: User = Depends(current_user), b=Depends(bot)):
     media = []
     if body.file_b64:
         kind = FILE_KINDS.get(body.file_mime or "")
@@ -185,11 +185,26 @@ async def ask(body: AskIn, user: User = Depends(current_user)):
             raise HTTPException(400, "bad_file") from e
     if not body.message.strip() and not media:
         raise HTTPException(400, "empty")
+    ctx = agent.Ctx(user=user, bot=b)
     try:
-        answer = await ai.ask(user, body.message, media)
+        answer = await ai.ask(user, body.message, media, ctx=ctx)
     except ai.AIUnavailable as e:
         raise HTTPException(429 if e.code in ("limit", "busy") else 503, e.code) from e
-    return {"answer": answer, "html": markdown_to_tg(answer)}
+    actions = [{"id": a["id"], "html": markdown_to_tg(a["summary"])} for a in ctx.pending]
+    return {"answer": answer, "html": markdown_to_tg(answer), "actions": actions}
+
+
+class ActionIn(BaseModel):
+    approve: bool
+
+
+@router.post("/ai/actions/{action_id}")
+async def resolve_action(action_id: int, body: ActionIn, user: User = Depends(current_user), b=Depends(bot)):
+    """✅ / ✖️ on an action the assistant prepared (broadcast, ban, delete…)."""
+    status, result = await agent.resolve(user, action_id, body.approve, b)
+    if status == "missing":
+        raise HTTPException(404)
+    return {"status": status, "error": result.get("error")}
 
 
 @router.get("/ai/history")

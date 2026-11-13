@@ -212,3 +212,34 @@ class Profile(Base):
     memory: Mapped[list] = mapped_column(JSON, default=list)  # short facts learned from chats
     memory_on: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class Task(Base):
+    """Something the assistant does later for a user: a reminder, an agent run or a scheduled broadcast."""
+
+    __tablename__ = "tasks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # "reminder" | "agent" | "broadcast"
+    text: Mapped[str] = mapped_column(Text)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)  # broadcast: segment / button
+    run_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
+    repeat: Mapped[str] = mapped_column(String(16), default="")  # "" | daily | weekdays | weekly
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class PendingAction(Base):
+    """A high-impact agent action waiting for the user's ✅ (broadcast, ban, delete…)."""
+
+    __tablename__ = "pending_actions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    tool: Mapped[str] = mapped_column(String(64))
+    args: Mapped[dict] = mapped_column(JSON, default=dict)
+    summary: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | done | cancelled | failed
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)

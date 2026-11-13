@@ -68,7 +68,7 @@ def texts(calls):
 
 
 def stream_of(answer: str):
-    async def fake_stream(user, q, media=None):
+    async def fake_stream(user, q, media=None, **kw):
         for word in answer.split(" "):
             yield word + " "
 
@@ -144,7 +144,7 @@ async def test_voice_and_photo_go_to_ai(tg, monkeypatch):
     async def fake_download(bot, file_id):
         return b"bytes-of-" + file_id.encode()
 
-    async def fake_ask(user, q, media=None):
+    async def fake_ask(user, q, media=None, **kw):
         got.append((q, [(m.kind, m.mime, m.data) for m in media or []]))
         yield "javob"
 

@@ -143,4 +143,11 @@ UW.setDict({
   memory_toggle: { uz: "Eslab qoliş", ru: "Запоминать", en: "Remember things" },
   memory_clear: { uz: "Hammasini öçiriş", ru: "Очистить всё", en: "Clear all" },
   memory_clear_q: { uz: "AI xotirasi butunlay öçirilsinmi?", ru: "Очистить всю память ИИ?", en: "Clear the whole AI memory?" },
+  act_confirm: { uz: "Tasdiqlang", ru: "Подтвердите", en: "Please confirm" },
+  act_yes: { uz: "✅ Tasdiqlaş", ru: "✅ Подтвердить", en: "✅ Confirm" },
+  act_no: { uz: "Bekor qiliş", ru: "Отмена", en: "Cancel" },
+  act_done: { uz: "✅ Bajarildi", ru: "✅ Выполнено", en: "✅ Done" },
+  act_cancelled: { uz: "Bekor qilindi", ru: "Отменено", en: "Cancelled" },
+  act_failed: { uz: "⚠️ Bajarilmadi", ru: "⚠️ Не выполнено", en: "⚠️ Failed" },
+  act_expired: { uz: "⌛ Muddati ötgan — qaytadan sörang", ru: "⌛ Устарело — попросите заново", en: "⌛ Expired — ask again" },
 });

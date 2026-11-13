@@ -72,7 +72,7 @@ async def send(bot: Bot, chat_id: int, markdown: str, reply_markup=None) -> None
     await _classic(bot, chat_id, markdown, reply_markup)
 
 
-async def stream(bot: Bot, chat_id: int, chunks: AsyncIterator[str], thinking: str = "…") -> str:
+async def stream(bot: Bot, chat_id: int, chunks: AsyncIterator, thinking: str = "…") -> str:
     """Show the answer growing live (rich draft), then persist it as a normal rich message.
 
     Returns the full text. Draft failures are ignored — the final message is what matters.
@@ -94,6 +94,10 @@ async def stream(bot: Bot, chat_id: int, chunks: AsyncIterator[str], thinking: s
     await draft(f"<tg-thinking>{thinking}</tg-thinking>")
     text, last = "", 0.0
     async for chunk in chunks:
+        if not isinstance(chunk, str):  # agent progress (a tool is running)
+            status = getattr(chunk, "text", "…")
+            await draft(f"{text}\n\n_{status}…_" if text.strip() else f"<tg-thinking>{status}…</tg-thinking>")
+            continue
         text += chunk
         if time.monotonic() - last >= DRAFT_EVERY and text.strip():
             last = time.monotonic()

@@ -188,14 +188,20 @@ T: dict[str, dict[str, str]] = {
         "uz": "🤖 <b>UWED Pulse AI</b>\n\nŞu yerga yozing yoki 🎤 ovozli xabar yuboring — UWED, öqiş, Moodle yoki "
         "deadlinelaringiz haqida sörang (ovozli savolga ovoz bilan ham javob beraman). Vazifa şarti yoki öz işingizni 🖼 rasm / 📄 PDF qilib yuborsangiz, "
         "tuşuntiraman va qayerni yaxşilaş kerakligini aytaman.\n\n"
-        "Masalan: <i>«Bu hafta qaysi deadlinelarim bor?»</i>\n\n🆕 Yangi mavzu: /new",
+        "⚡ Işlarni özim bajaraman: eslatma qöyaman, deadlineni bajarildi deb belgilayman, sozlamalarni özgartiraman, "
+        "adminga yozib qöyaman, har kuni kerakli narsani yuborib turaman.\n\n"
+        "Masalan: <i>«Ertaga 8:00 da kutubxonaga borişni eslat»</i>\n\n🆕 Yangi mavzu: /new",
         "ru": "🤖 <b>UWED Pulse AI</b>\n\nНапишите или отправьте 🎤 голосовое — спросите об UWED, учёбе, Moodle "
         "или дедлайнах (на голосовое отвечу и голосом). Пришлите задание или свою работу 🖼 фото / 📄 PDF — объясню и подскажу, что улучшить.\n\n"
-        "Например: <i>«Какие у меня дедлайны на этой неделе?»</i>\n\n🆕 Новая тема: /new",
+        "⚡ Могу и делать: поставить напоминание, отметить задание выполненным, поменять настройки, "
+        "написать админу, присылать нужное каждый день.\n\n"
+        "Например: <i>«Напомни завтра в 8:00 сходить в библиотеку»</i>\n\n🆕 Новая тема: /new",
         "en": "🤖 <b>UWED Pulse AI</b>\n\nType or send a 🎤 voice message — ask about UWED, studies, Moodle "
         "or your deadlines (voice questions get a voice reply too). Send an assignment or your own work as a 🖼 photo / 📄 PDF and I'll explain "
         "it and show what to improve.\n\n"
-        "For example: <i>“What deadlines do I have this week?”</i>\n\n🆕 New topic: /new",
+        "⚡ I can also act: set reminders, mark tasks done, change your settings, message the admins, "
+        "send you what you need every day.\n\n"
+        "For example: <i>“Remind me tomorrow at 8:00 to go to the library”</i>\n\n🆕 New topic: /new",
     },
     "ai_new": {
         "uz": "🆕 Yangi suhbat boşlandi. Savolingizni yozing!",
@@ -262,6 +268,18 @@ T: dict[str, dict[str, str]] = {
         "en": "### 🛠 Maintenance\n\nWe're improving the bot — back soon!",
     },
     "left": {"uz": "Qoldi", "ru": "Осталось", "en": "Left"},
+    "agent_working": {"uz": "Bajaryapman", "ru": "Выполняю", "en": "Working on it"},
+    "act_confirm_title": {"uz": "Tasdiqlang", "ru": "Подтвердите", "en": "Please confirm"},
+    "act_yes": {"uz": "✅ Tasdiqlaş", "ru": "✅ Подтвердить", "en": "✅ Confirm"},
+    "act_no": {"uz": "✖️ Bekor qiliş", "ru": "✖️ Отмена", "en": "✖️ Cancel"},
+    "act_done": {"uz": "✅ Bajarildi", "ru": "✅ Выполнено", "en": "✅ Done"},
+    "act_cancelled": {"uz": "✖️ Bekor qilindi", "ru": "✖️ Отменено", "en": "✖️ Cancelled"},
+    "act_failed": {"uz": "⚠️ Bajarilmadi", "ru": "⚠️ Не выполнено", "en": "⚠️ Failed"},
+    "act_expired": {"uz": "⌛ Muddati ötgan — qaytadan sörang", "ru": "⌛ Устарело — попросите заново", "en": "⌛ Expired — ask again"},
+    "task_reminder": {"uz": "Eslatma", "ru": "Напоминание", "en": "Reminder"},
+    "task_done": {"uz": "Rejalaştirilgan vazifa", "ru": "Запланированная задача", "en": "Scheduled task"},
+    "task_failed": {"uz": "Vazifani hozir bajarib bölmadi.", "ru": "Не удалось выполнить задачу.", "en": "Couldn't run the task right now."},
+    "task_broadcast_sent": {"uz": "Rejalaştirilgan xabar yuborildi", "ru": "Запланированная рассылка отправлена", "en": "Scheduled broadcast sent"},
 }
 
 # Reply-keyboard labels from before the new Uzbek alphabet: students keep the old keyboard until

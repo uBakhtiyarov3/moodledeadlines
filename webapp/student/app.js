@@ -280,11 +280,30 @@
       if (att) { body.file_b64 = att.b64; body.file_mime = att.mime; }
       const r = await api("/api/ai", { body });
       typing.remove(); bubble(r.html);
+      (r.actions || []).forEach(actionCard);
       me.ai_left = Math.max(0, me.ai_left - 1); renderAiLeft();
     } catch (e) {
       typing.remove();
       bubble("⚠️ " + esc(t({ limit: "ai_limit", disabled: "ai_disabled", busy: "ai_busy", unsupported: "unsupported" }[e.detail] || "ai_error")));
     }
+  }
+  // an action the assistant prepared (broadcast, ban…) runs only after ✅
+  function actionCard(a) {
+    const el = bubble(`<b>⚠️ ${esc(t("act_confirm"))}</b><br><br>${a.html}
+      <div class="act-row" style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn sm" data-ok>${esc(t("act_yes"))}</button>
+        <button class="btn sm ghost" data-no>${esc(t("act_no"))}</button></div>`);
+    const decide = async (approve) => {
+      $$("button", el).forEach((b) => (b.disabled = true));
+      try {
+        const r = await api(`/api/ai/actions/${a.id}`, { body: { approve } });
+        const key = { done: "act_done", cancelled: "act_cancelled", expired: "act_expired" }[r.status] || "act_failed";
+        $(".act-row", el).outerHTML = `<div class="muted small" style="margin-top:10px">${esc(t(key))}${r.error ? " — " + esc(r.error) : ""}</div>`;
+        haptic(r.status === "done" ? "success" : "light");
+      } catch (e) { toast(errText(e), "error"); $$("button", el).forEach((b) => (b.disabled = false)); }
+    };
+    $("[data-ok]", el).onclick = () => decide(true);
+    $("[data-no]", el).onclick = () => decide(false);
   }
   $("#ai-send").innerHTML = I.send;
   $("#composer").onsubmit = (e) => { e.preventDefault(); send(); };
