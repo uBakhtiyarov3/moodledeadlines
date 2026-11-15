@@ -14,7 +14,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import Session
 from app.models import ChatMessage, Deadline, User
-from app.services import agent, kb, profile, users
+from app.services import agent, coursenames, kb, profile, users
 from app.services import settings as rt
 from app.version import RELEASED, VERSION, changes
 
@@ -76,7 +76,7 @@ async def _deadline_context(user_id: int) -> str:
         ).scalars().all()
     if not rows:
         return "The student has no upcoming Moodle deadlines tracked."
-    lines = [f"- {d.title} ({d.course}) — due {d.due_at.astimezone(tz):%Y-%m-%d %H:%M}" for d in rows]
+    lines = [f"- {d.title} ({coursenames.full(d.course)}) — due {d.due_at.astimezone(tz):%Y-%m-%d %H:%M}" for d in rows]
     return "The student's upcoming Moodle deadlines:\n" + "\n".join(lines)
 
 

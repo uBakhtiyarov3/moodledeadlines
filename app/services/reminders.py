@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.db import Session
 from app.i18n import humanize_left, reminder_head, t
 from app.models import Deadline, ReminderLog, User
+from app.services import coursenames
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ def format_reminder(d: Deadline, offset: int, lang: str, now: datetime) -> str:
     head = reminder_head(offset, lang).replace("<b>", "**").replace("</b>", "**")
     parts = [f"### {head}", "", f"📘 **{esc(d.title)}**"]
     if d.course:
-        parts.append(f"🎓 *{esc(d.course)}*")
+        parts.append(f"🎓 *{esc(coursenames.full(d.course))}*")
     parts.append(
         f"🕒 {tg_time(d.due_at, 'wDT', f'{local:%d.%m.%Y %H:%M}')}  ·  "
         f"{t('left', lang)}: **{tg_time(d.due_at, 'r', humanize_left(left_min, lang))}**"

@@ -5,6 +5,7 @@
   let scope = "upcoming";
   let items = [];
   let courses = [];
+  let courseNames = {};  // short code → full course name
 
   // ---------- helpers ----------
   // [[value, unit], [value, unit]] for the two largest units
@@ -146,7 +147,7 @@
     $("#deadline-list").innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
     try {
       const r = await api("/api/deadlines?scope=" + scope);
-      items = r.items; courses = r.courses;
+      items = r.items; courses = r.courses; courseNames = r.course_names || {};
       renderHero(); renderList(); renderCourses();
     } catch (e) { toast(errText(e), "error"); $("#deadline-list").innerHTML = ""; }
   }
@@ -465,7 +466,7 @@
   function renderCourses() {
     $("#courses-block").classList.toggle("hidden", !courses.length);
     $("#courses").innerHTML = courses.map((c) => `
-      <div class="item"><div class="icon">🎓</div><div class="grow title" style="overflow-wrap:anywhere">${esc(c)}</div>
+      <div class="item"><div class="icon">🎓</div><div class="grow title" style="overflow-wrap:anywhere">${esc(courseNames[c] || c)}</div>
       <label class="switch"><input type="checkbox" data-course="${esc(c)}" ${(me.muted_courses || []).includes(c) ? "" : "checked"}/><span></span></label></div>`).join("");
     $$("#courses input").forEach((inp) => (inp.onchange = () => {
       save({ muted_courses: $$("#courses input").filter((x) => !x.checked).map((x) => x.dataset.course) });

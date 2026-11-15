@@ -23,7 +23,7 @@ from app.bot.keyboards import app_url
 from app.config import get_settings
 from app.db import init_db
 from app.version import VERSION
-from app.services import coursework, kb, tasks
+from app.services import coursenames, coursework, kb, tasks
 from app.services import settings as rt
 from app.services.reminders import dispatch_due_reminders
 from app.services.sync import sync_all
@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     await rt.load()
     await kb.rebuild()
+    await coursenames.load()
 
     bot = Bot(settings.bot_token or "0:dummy", default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     app.state.bot = bot

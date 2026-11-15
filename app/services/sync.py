@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.db import Session
 from app.models import Deadline, User, utcnow
 from app.moodle import ws
+from app.services import coursenames
 from app.moodle.ical import IcalUrlError, ParsedEvent, fetch_ical, parse_ical
 from app.security import decrypt
 
@@ -97,6 +98,11 @@ async def sync_user(user_id: int, client: httpx.AsyncClient | None = None) -> in
                     if d.completed_auto and d.moodle_event_id in pending:
                         d.completed = False
                         d.completed_auto = False
+                # full course names for the calendar's short codes, once per new course
+                if any(e.course and not coursenames.known(e.course) for e in events):
+                    uid = user.moodle_userid or await ws.site_userid_safe(token)
+                    courses = await ws.call(token, "core_enrol_get_users_courses", userid=uid) if uid else []
+                    await coursenames.remember(courses if isinstance(courses, list) else [])
             except ws.MoodleAuthError as exc:
                 if exc.code in ("invalidtoken", "accessexception"):
                     user.ws_token_enc = None

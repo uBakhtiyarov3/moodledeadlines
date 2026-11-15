@@ -16,7 +16,7 @@ from app.db import Session
 from app.i18n import LEGACY_BUTTONS, T, humanize_left, t
 from app.models import AgentButton, ChatMessage, Deadline, GradeSeen, User
 from app.moodle.ical import IcalUrlError
-from app.services import agent, ai, files, linking, support, tts, users
+from app.services import agent, ai, coursenames, files, linking, support, tts, users
 from app.services import settings as rt
 
 router = Router()
@@ -144,7 +144,7 @@ def deadlines_markdown(rows: list[Deadline], lang: str, now: datetime) -> str:
         left = int((d.due_at - now).total_seconds() // 60)
         dot = "🔴" if left < 360 else "🟠" if left < 1440 else "🟢"
         local = d.due_at.astimezone(tz)
-        task = f"**{rich.esc(d.title)}**" + (f"<br>*{rich.esc(d.course)}*" if d.course else "")
+        task = f"**{rich.esc(d.title)}**" + (f"<br>*{rich.esc(coursenames.full(d.course))}*" if d.course else "")
         due = rich.tg_time(d.due_at, "wDT", f"{local:%d.%m %H:%M}")
         rel = rich.tg_time(d.due_at, "r", humanize_left(left, lang))
         lines.append(f"| {dot} | {task} | {due} | {rel} |")

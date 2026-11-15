@@ -97,7 +97,9 @@ async def _courses(user_id: int) -> list[str]:
             .order_by(func.count(Deadline.id).desc())
             .limit(15)
         )
-    return [c for c, _ in rows.all()]
+    from app.services import coursenames
+
+    return [coursenames.full(c) for c, _ in rows.all()]
 
 
 async def context(u: User) -> str:

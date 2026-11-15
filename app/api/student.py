@@ -12,7 +12,7 @@ from app.i18n import LANGS
 from app.models import ChatMessage, Deadline, User
 from app.moodle import ws
 from app.moodle.ical import IcalUrlError
-from app.services import agent, ai, coursework, files, linking, profile, support, users
+from app.services import agent, ai, coursenames, coursework, files, linking, profile, support, users
 from app.services import settings as rt
 from app.services.sync import sync_user
 from app.services.tg_html import markdown_to_tg
@@ -44,7 +44,8 @@ def deadline_out(d: Deadline) -> dict:
     return {
         "id": d.id,
         "title": d.title,
-        "course": d.course,
+        "course": coursenames.full(d.course),
+        "course_code": d.course,
         "description": d.description[:600],
         "url": d.url,
         "due_at": d.due_at.isoformat(),
@@ -100,8 +101,9 @@ async def deadlines(scope: str = "upcoming", user: User = Depends(current_user))
         courses = sorted(
             {c for c in (await s.execute(select(Deadline.course).where(Deadline.user_id == user.id))).scalars() if c}
         )
-    return {"items": [deadline_out(d) for d in rows if d.course not in hidden],
-            "courses": [c for c in courses if c not in hidden]}
+    shown = [c for c in courses if c not in hidden and coursenames.full(c) not in hidden]
+    return {"items": [deadline_out(d) for d in rows if d.course not in hidden and coursenames.full(d.course) not in hidden],
+            "courses": shown, "course_names": {c: coursenames.full(c) for c in shown}}
 
 
 class DoneIn(BaseModel):

@@ -281,3 +281,13 @@ class HiddenCourse(Base):
     course_id: Mapped[int] = mapped_column(Integer)
     fullname: Mapped[str] = mapped_column(String(255), default="")
     shortname: Mapped[str] = mapped_column(String(255), default="")
+
+
+class CourseName(Base):
+    """Moodle course short name (what the calendar export gives) → full name (from the web service)."""
+
+    __tablename__ = "course_names"
+
+    shortname: Mapped[str] = mapped_column(String(255), primary_key=True)
+    fullname: Mapped[str] = mapped_column(String(255))
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)

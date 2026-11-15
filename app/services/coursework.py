@@ -22,7 +22,7 @@ from app.db import Session
 from app.models import GradeSeen, HiddenCourse, User
 from app.moodle import ws
 from app.security import decrypt
-from app.services import files
+from app.services import coursenames, files
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ def _local(ts: int | None) -> str | None:
 
 async def assignments(token: str) -> list[dict]:
     data = await ws.call(token, "mod_assign_get_assignments")
+    await coursenames.remember(data.get("courses", []) if isinstance(data, dict) else [])
     out = []
     for course in data.get("courses", []) if isinstance(data, dict) else []:
         for a in course.get("assignments", []):
@@ -199,6 +200,7 @@ async def overview(user: User, refresh: bool = False) -> list[dict]:
     userid = user.moodle_userid or await ws.site_userid_safe(token)
     base = get_settings().moodle_base.rstrip("/")
     courses = await ws.call(token, "core_enrol_get_users_courses", userid=userid)
+    await coursenames.remember(courses if isinstance(courses, list) else [])
     allowed = await allowed_categories(token)
     if allowed is not None and isinstance(courses, list):  # only the university's current study programme
         courses = [c for c in courses if c.get("category") is None or int(c["category"]) in allowed]
@@ -261,6 +263,7 @@ async def set_hidden(user: User, course_id: int, hide: bool, fullname: str = "",
 
 async def _grade_items(token: str, userid: int) -> list[dict]:
     courses = await ws.call(token, "core_enrol_get_users_courses", userid=userid)
+    await coursenames.remember(courses if isinstance(courses, list) else [])
     allowed = await allowed_categories(token)
     if allowed is not None and isinstance(courses, list):
         courses = [c for c in courses if c.get("category") is None or int(c["category"]) in allowed]

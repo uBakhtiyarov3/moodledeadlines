@@ -394,8 +394,34 @@ async def test_grades_page_and_hiding_courses(client, moodle_student):  # noqa: 
     assert r["courses"] == [] and r["hidden"] == [{"id": 9, "fullname": "Xalqaro munosabatlar"}]
     me = (await client.get("/api/me", headers=h)).json()
     assert set(me["muted_courses"]) == {"Xalqaro munosabatlar", "XM"}  # no reminders either
-    assert (await client.get("/api/deadlines", headers=h)).json() == {"items": [], "courses": []}
+    assert (await client.get("/api/deadlines", headers=h)).json() == {"items": [], "courses": [], "course_names": {}}
 
     r = (await client.post("/api/grades/hidden", headers=h, json={"course_id": 9, "hidden": False})).json()
     assert r["hidden"] == [] and len(r["courses"]) == 1
     assert (await client.get("/api/me", headers=h)).json()["muted_courses"] == []
+
+
+
+async def test_full_course_names_replace_calendar_codes(client):  # noqa: F811
+    """The calendar only says 'xih_202627'; once Moodle told us the full name, everyone sees it."""
+    from app.models import Deadline
+    from app.services import coursenames, reminders
+
+    await client.get("/api/me", headers=auth(320))
+    async with Session() as s:
+        d = Deadline(user_id=320, uid="m2", title="Midterm exam 2 is due", course="xih_202627",
+                     due_at=datetime.now(timezone.utc) + timedelta(days=6))
+        s.add(d)
+        await s.commit()
+    r = (await client.get("/api/deadlines", headers=auth(320))).json()
+    assert r["items"][0]["course"] == "xih_202627"  # unknown yet → the code
+
+    await coursenames.remember([{"shortname": "xih_202627", "fullname": "Xalqaro investitsiya huquqi / International Investment Law"}])
+    r = (await client.get("/api/deadlines", headers=auth(320))).json()
+    item = r["items"][0]
+    assert item["course"] == "Xalqaro investitsiya huquqi / International Investment Law" and item["course_code"] == "xih_202627"
+    assert r["courses"] == ["xih_202627"] and r["course_names"]["xih_202627"].startswith("Xalqaro investitsiya")
+    assert "Xalqaro investitsiya huquqi" in reminders.format_reminder(d, 60, "uz", datetime.now(timezone.utc))
+
+    await coursenames.load()  # survives a restart
+    assert coursenames.full("xih_202627").startswith("Xalqaro investitsiya")
