@@ -580,6 +580,8 @@ def _settings_summary(a: dict) -> str | None:
       {"ai_enabled": B("AI on/off for everyone"), "tts_enabled": B("voice replies on/off"),
        "maintenance": B("maintenance mode: only admins can use the bot"),
        "ai_model": S("Gemini model id tried first, e.g. gemini-4-hydrogen, gemini-3.8-flash"),
+       "grades_categories": {"type": "array", "items": {"type": "integer"},
+                             "description": "Moodle category ids whose courses (with subcategories) the grades page shows; [] = all"},
        "agent_confirm": B("ask the admin for ✅ before broadcasts, bans, deletions, switching off"),
        "ai_daily_limit": I("AI questions per student per day"),
        "ai_system_prompt": S("extra instructions for the AI (admin notes), full new text"),

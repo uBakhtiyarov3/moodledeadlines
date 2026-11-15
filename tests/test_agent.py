@@ -313,7 +313,11 @@ async def moodle_student(client, monkeypatch):  # noqa: F811
                 {"type": "file", "fileareas": [{"files": [{"filename": "esse.docx", "fileurl": "https://moodle.uwed.uz/f/esse.docx", "mimetype": ""}]}]}]}}}
         if function == "core_enrol_get_users_courses":
             assert params["userid"] == 77
-            return [{"id": 9, "fullname": "Xalqaro munosabatlar"}]
+            return [{"id": 9, "fullname": "Xalqaro munosabatlar", "category": 331},  # 331 is inside 330
+                    {"id": 10, "fullname": "Eski kurs (2021)", "category": 12}]
+        if function == "core_course_get_categories":
+            assert params["criteria[0][value]"] == 330 and params["addsubcategories"] == 1
+            return [{"id": 330, "path": "/5/330"}, {"id": 331, "path": "/5/330/331"}]
         if function == "gradereport_user_get_grade_items":
             items = [{"id": 1, "itemtype": "course", "graderaw": 80}]
             if grade["value"]:
@@ -373,6 +377,7 @@ async def test_grades_page_and_hiding_courses(client, moodle_student):  # noqa: 
 
     grade["value"] = "85,00"
     r = (await client.get("/api/grades?refresh=true", headers=h)).json()
+    assert [c["id"] for c in r["courses"]] == [9]  # only category 330 and its subcategories
     course = r["courses"][0]
     assert course["fullname"] == "Xalqaro munosabatlar" and course["id"] == 9
     assert course["items"] == [{"name": "Esse: suv xavfsizligi", "grade": "85,00", "max": 100.0, "percent": 85,

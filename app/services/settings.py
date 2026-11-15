@@ -196,6 +196,7 @@ DEFAULTS: dict = {
     "ai_system_prompt": DEFAULT_SYSTEM_PROMPT,
     "maintenance": False,
     "agent_confirm": False,
+    "grades_categories": [330],  # Moodle categories shown on the grades page (with subcategories); [] = all
     "ai_model": "gemini-4-hydrogen",  # tried first; GEMINI_MODEL and the fallbacks follow  # ask the admin for ✅ before broadcasts, bans, deletions
     "default_offsets": DEFAULT_OFFSETS,
     "allowed_offsets": [4320, 2880, 1440, 720, 360, 180, 120, 60, 30],

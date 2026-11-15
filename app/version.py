@@ -1,11 +1,12 @@
 """The one place the UWED Pulse version lives. Bump it (and add to CHANGES) with every release."""
 
-VERSION = "3.0.1"
+VERSION = "3.0.2"
 RELEASED = "2026-11-15"
 
 # What's new, shown in the Mini App (tap the version): this release first, then the previous big one.
 CHANGES = {
     "uz": [
+        "🎓 Baholarda faqat joriy öquv dasturi kurslari (Moodle 330-kategoriya)",
         "⭕ Eng yaqin deadline uçun aylana taymer",
         "🎨 Butunlay yangi dizayn: yangi şrift, toza kartalar, gradientli bosh ekran",
         "⏱ Bosh ekranda katta taymer, tez amallar va kurs belgili rangli kartalar",
@@ -24,6 +25,7 @@ CHANGES = {
         "🔤 Yangi özbek lotin alifbosi",
     ],
     "ru": [
+        "🎓 В оценках только курсы текущей программы (категория Moodle 330)",
         "⭕ Кольцевой таймер до ближайшего дедлайна",
         "🎨 Полностью новый дизайн: новый шрифт, чистые карточки, градиентный главный экран",
         "⏱ Большой таймер, быстрые действия и цветные карточки курсов на главной",
@@ -42,6 +44,7 @@ CHANGES = {
         "🔤 Новый узбекский латинский алфавит",
     ],
     "en": [
+        "🎓 Grades show only the current programme's courses (Moodle category 330)",
         "⭕ A ring countdown to the next deadline",
         "🎨 A completely new design: new typeface, clean cards, gradient home screen",
         "⏱ Big countdown, quick actions and colour-coded course cards on the home screen",

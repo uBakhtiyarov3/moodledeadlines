@@ -158,6 +158,36 @@ def _num(value) -> float | None:
         return None
 
 
+_category_cache: dict[tuple, tuple[float, set[int]]] = {}
+
+
+async def allowed_categories(token: str) -> set[int] | None:
+    """The grades page's Moodle categories (admin setting) plus all their subcategories; None = no filter."""
+    import time
+
+    from app.services import settings as rt
+
+    roots = tuple(sorted(int(c) for c in rt.get("grades_categories") or []))
+    if not roots:
+        return None
+    cached = _category_cache.get(roots)
+    if cached and time.monotonic() - cached[0] < 3600:
+        return cached[1]
+    ids = set(roots)
+    for root in roots:
+        try:
+            cats = await ws.call(token, "core_course_get_categories", **{
+                "criteria[0][key]": "id", "criteria[0][value]": root, "addsubcategories": 1})
+        except (ws.MoodleAuthError, httpx.HTTPError):
+            continue  # can't read the tree: the category itself still works
+        for cat in cats if isinstance(cats, list) else []:
+            path = [int(x) for x in str(cat.get("path") or "").split("/") if x.isdigit()]
+            if root in path or cat.get("id") == root:
+                ids.add(int(cat["id"]))
+    _category_cache[roots] = (time.monotonic(), ids)
+    return ids
+
+
 async def overview(user: User, refresh: bool = False) -> list[dict]:
     """Every enrolled course with its full name, course total and graded items."""
     import time
@@ -169,6 +199,9 @@ async def overview(user: User, refresh: bool = False) -> list[dict]:
     userid = user.moodle_userid or await ws.site_userid_safe(token)
     base = get_settings().moodle_base.rstrip("/")
     courses = await ws.call(token, "core_enrol_get_users_courses", userid=userid)
+    allowed = await allowed_categories(token)
+    if allowed is not None and isinstance(courses, list):  # only the university's current study programme
+        courses = [c for c in courses if c.get("category") is None or int(c["category"]) in allowed]
     out = []
     for c in courses if isinstance(courses, list) else []:
         entry = {"id": c["id"], "fullname": plain(c.get("fullname"), 255) or c.get("shortname") or "—",
@@ -228,6 +261,9 @@ async def set_hidden(user: User, course_id: int, hide: bool, fullname: str = "",
 
 async def _grade_items(token: str, userid: int) -> list[dict]:
     courses = await ws.call(token, "core_enrol_get_users_courses", userid=userid)
+    allowed = await allowed_categories(token)
+    if allowed is not None and isinstance(courses, list):
+        courses = [c for c in courses if c.get("category") is None or int(c["category"]) in allowed]
     items = []
     for course in courses if isinstance(courses, list) else []:
         try:

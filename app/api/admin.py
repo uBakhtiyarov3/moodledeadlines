@@ -287,6 +287,8 @@ async def put_settings(values: dict):
         if model and not re.fullmatch(r"[a-z0-9][a-z0-9.\-]{1,63}", model):
             raise HTTPException(400, "bad_model")
         clean["ai_model"] = model
+    if "grades_categories" in values:
+        clean["grades_categories"] = sorted({int(c) for c in values["grades_categories"] or [] if str(c).isdigit()})
     if "agent_confirm" in values:
         clean["agent_confirm"] = bool(values["agent_confirm"])
     if "ai_daily_limit" in values:
