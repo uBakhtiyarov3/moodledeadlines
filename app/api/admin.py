@@ -1,4 +1,5 @@
 import asyncio
+import re
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -279,6 +280,11 @@ async def put_settings(values: dict):
         clean["tts_enabled"] = bool(values["tts_enabled"])
     if "maintenance" in values:
         clean["maintenance"] = bool(values["maintenance"])
+    if "ai_model" in values:
+        model = str(values["ai_model"] or "").strip().removeprefix("models/")
+        if model and not re.fullmatch(r"[a-z0-9][a-z0-9.\-]{1,63}", model):
+            raise HTTPException(400, "bad_model")
+        clean["ai_model"] = model
     if "agent_confirm" in values:
         clean["agent_confirm"] = bool(values["agent_confirm"])
     if "ai_daily_limit" in values:

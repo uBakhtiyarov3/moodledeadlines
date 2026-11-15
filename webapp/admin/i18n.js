@@ -97,6 +97,8 @@ UW.setDict({
   maintenance_d: { uz: "Faqat adminlar foydalana oladi", ru: "Доступ только админам", en: "Only admins can use the bot" },
   ai_enabled: { uz: "AI yoqilgan", ru: "ИИ включён", en: "AI enabled" },
   tts_enabled: { uz: "Ovozli javob", ru: "Голосовые ответы", en: "Voice replies" },
+  ai_model: { uz: "AI model", ru: "Модель ИИ", en: "AI model" },
+  ai_model_d: { uz: "Avval şu işlatiladi, band bölsa zaxira modellar", ru: "Сначала эта, при перегрузке — запасные", en: "Tried first; backups if it's busy" },
   agent_confirm: { uz: "Tasdiqlaş tugmasi", ru: "Кнопка подтверждения", en: "Confirm button" },
   agent_confirm_d: { uz: "AI hammaga xabar, bloklaş va öçirişdan oldin ✅ söraydi", ru: "ИИ спрашивает ✅ перед рассылкой, баном и удалением", en: "The AI asks for ✅ before broadcasts, bans and deletions" },
   tts_d: { uz: "Ovozli savolga ovoz bilan ham javob beradi", ru: "На голосовой вопрос отвечает и голосом", en: "Answers voice questions with voice too" },

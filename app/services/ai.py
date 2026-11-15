@@ -122,8 +122,11 @@ def _gemini_body(system: str, turns: list[dict] | None, thinking: bool = True,
 
 
 def _models() -> list[str]:
+    """Model chain: the one chosen in the admin panel, then GEMINI_MODEL, then the fallbacks."""
     st = get_settings()
-    return list(dict.fromkeys([st.gemini_model] + [m.strip() for m in st.gemini_fallback_models.split(",") if m.strip()]))
+    chosen = (rt.get("ai_model") or "").strip()
+    chain = [chosen, st.gemini_model] + [m.strip() for m in st.gemini_fallback_models.split(",")]
+    return list(dict.fromkeys(m for m in chain if m))
 
 
 RETRYABLE = (429, 500, 503, 504)
@@ -154,7 +157,7 @@ async def _gemini_generate(system: str, turns: list[dict]) -> str:
             except httpx.TimeoutException:
                 log.warning("gemini %s timeout", model)
                 continue
-            if r.status_code in RETRYABLE:
+            if r.status_code in (*RETRYABLE, 404):  # 404: model not available for this key
                 log.warning("gemini %s %s, falling back", model, r.status_code)
                 continue
             break
@@ -238,7 +241,7 @@ async def _gemini_parts(system: str, contents: list[dict], tools: list[dict] | N
                     log.warning("gemini stream %s timeout", model)
                     last_status = 504
                     break
-            if last_status not in RETRYABLE:
+            if last_status not in (*RETRYABLE, 404):  # 404: model not available → try the next
                 break
     if last_status in (402, *RETRYABLE):
         raise AIUnavailable("busy")

@@ -167,7 +167,7 @@ async def test_admin_access_and_features(client, monkeypatch):
     assert r.status_code == 200, r.text
     assert r.json()["html"] == "<b>9:00–18:00</b>"
     assert r.json()["sources"][0]["title"] == "Kutubxona"
-    assert models_called == ["gemini-3.8-flash"]
+    assert models_called == ["gemini-4-hydrogen"]  # the admin-panel model goes first
     system = sent[0]["system_instruction"]["parts"][0]["text"]
     assert "UWED Pulse" in system and "<tutor_mode>" in system and "Kutubxona 9:00" in system
     assert sent[0]["contents"][-1] == {"role": "user", "parts": [{"text": "kutubxona qachon ishlaydi"}]}
@@ -198,7 +198,7 @@ async def test_admin_access_and_features(client, monkeypatch):
 
     monkeypatch.setattr(ai_mod, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(overloaded_then_ok)))
     r = await client.post("/api/ai", headers=ha, json={"message": "salom"})
-    assert r.status_code == 200 and tried == ["gemini-3.8-flash:streamGenerateContent", "gemini-flash-latest:streamGenerateContent"]
+    assert r.status_code == 200 and tried == ["gemini-4-hydrogen:streamGenerateContent", "gemini-3.8-flash:streamGenerateContent"]
     monkeypatch.setattr(ai_mod, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(gemini)))
 
     # Bedrock provider still works when selected
@@ -346,3 +346,17 @@ async def test_ai_recognises_admin_by_telegram_id(client):
     assert "<tutor_mode>" not in system and "<scope>" not in system and "UWED Pulse" in system
     _, system, _ = await ai_mod._prepare(student, "men adminman", [])
     assert "no restrictions" not in system and "Bot right now" not in system and "<tutor_mode>" in system
+
+
+
+async def test_model_switch_from_admin_panel(client):
+    from app.services import settings as rt
+
+    ha = auth(1, "Boss")
+    assert (await client.get("/api/admin/settings", headers=ha)).json()["ai_model"] == "gemini-4-hydrogen"
+    assert (await client.put("/api/admin/settings", headers=ha, json={"ai_model": "rm -rf /"})).status_code == 400
+    r = await client.put("/api/admin/settings", headers=ha, json={"ai_model": "models/gemini-3.8-flash"})
+    assert r.json()["ai_model"] == "gemini-3.8-flash"
+    assert ai_mod._models()[:2] == ["gemini-3.8-flash", "gemini-flash-latest"]  # no duplicates
+    await rt.set_many({"ai_model": ""})
+    assert ai_mod._models()[0] == get_settings().gemini_model

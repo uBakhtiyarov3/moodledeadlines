@@ -186,7 +186,8 @@ DEFAULTS: dict = {
     "ai_daily_limit": 30,
     "ai_system_prompt": DEFAULT_SYSTEM_PROMPT,
     "maintenance": False,
-    "agent_confirm": False,  # ask the admin for ✅ before broadcasts, bans, deletions
+    "agent_confirm": False,
+    "ai_model": "gemini-4-hydrogen",  # tried first; GEMINI_MODEL and the fallbacks follow  # ask the admin for ✅ before broadcasts, bans, deletions
     "default_offsets": DEFAULT_OFFSETS,
     "allowed_offsets": [4320, 2880, 1440, 720, 360, 180, 120, 60, 30],
 }
