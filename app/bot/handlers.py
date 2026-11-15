@@ -16,7 +16,7 @@ from app.db import Session
 from app.i18n import LEGACY_BUTTONS, T, humanize_left, t
 from app.models import AgentButton, ChatMessage, Deadline, User
 from app.moodle.ical import IcalUrlError
-from app.services import agent, ai, linking, support, tts, users
+from app.services import agent, ai, files, linking, support, tts, users
 from app.services import settings as rt
 
 router = Router()
@@ -332,7 +332,8 @@ async def ai_new_cb(cb: CallbackQuery, user: User):
 
 
 AI_ERRORS = {"disabled": "ai_disabled", "limit": "ai_limit", "busy": "ai_busy", "unsupported": "unsupported_file"}
-MAX_FILE = 15 * 1024 * 1024
+MAX_FILE = 20 * 1024 * 1024  # Telegram's limit for bot downloads
+MAX_INLINE = 14 * 1024 * 1024  # media sent to the AI as is (base64 must fit Gemini's 20 MB request)
 
 
 async def _answer_ai(message: Message, user: User, text: str, media: list | None = None, voice: bool = False):
@@ -424,36 +425,35 @@ async def download(bot, file_id: str) -> bytes:
     return buf.read()
 
 
-def media_spec(message: Message) -> tuple[str, str, str, int, int] | None:
-    """(kind, mime, file_id, size, duration) for supported attachments."""
+def media_spec(message: Message) -> tuple[str, str, str, int, int, str] | None:
+    """(kind, mime, file_id, size, duration, file name); documents are typed later by files.prepare."""
     if message.voice:
         v = message.voice
-        return "audio", v.mime_type or "audio/ogg", v.file_id, v.file_size or 0, v.duration
+        return "audio", v.mime_type or "audio/ogg", v.file_id, v.file_size or 0, v.duration, ""
     if message.audio:
         a = message.audio
-        return "audio", a.mime_type or "audio/mpeg", a.file_id, a.file_size or 0, a.duration
+        return "audio", a.mime_type or "audio/mpeg", a.file_id, a.file_size or 0, a.duration, a.file_name or ""
     if message.photo:
         p = message.photo[-1]
-        return "image", "image/jpeg", p.file_id, p.file_size or 0, 0
+        return "image", "image/jpeg", p.file_id, p.file_size or 0, 0, ""
+    if message.video or message.video_note:
+        v = message.video or message.video_note
+        return "video", getattr(v, "mime_type", None) or "video/mp4", v.file_id, v.file_size or 0, v.duration, ""
     if message.document:
         d = message.document
-        mime = d.mime_type or ""
-        if mime in ("image/jpeg", "image/png", "image/webp"):
-            return "image", mime, d.file_id, d.file_size or 0, 0
-        if mime == "application/pdf":
-            return "document", mime, d.file_id, d.file_size or 0, 0
+        return "file", d.mime_type or "", d.file_id, d.file_size or 0, 0, d.file_name or "file"
     return None
 
 
-@router.message(F.voice | F.audio | F.photo | F.document)
+@router.message(F.voice | F.audio | F.photo | F.document | F.video | F.video_note)
 async def ai_media(message: Message, user: User):
     spec = media_spec(message)
     if spec is None:
         await say(message, t("unsupported_file", user.lang))
         return
-    kind, mime, file_id, size, duration = spec
+    kind, mime, file_id, size, duration, name = spec
     limit = get_settings().ai_max_voice_sec
-    if kind == "audio" and duration > limit:
+    if kind in ("audio", "video") and duration > limit:
         await say(message, t("voice_too_long", user.lang, n=limit // 60))
         return
     if size > MAX_FILE:
@@ -463,8 +463,17 @@ async def ai_media(message: Message, user: User):
         message.chat.id, ChatAction.RECORD_VOICE if kind == "audio" else ChatAction.TYPING
     )
     data = await download(message.bot, file_id)
+    if kind == "file":  # Word, Excel, PowerPoint, PDF, text, code… → what the AI can read
+        try:
+            kind, mime, data = files.prepare(name, mime, data)
+        except files.UnsupportedFile as e:
+            await say(message, t("old_format" if e.args[0] == "old_format" else "unsupported_file", user.lang))
+            return
+    if mime != "text/plain" and len(data) > MAX_INLINE:
+        await say(message, t("file_too_big", user.lang))
+        return
     await _answer_ai(
-        message, user, message.caption or "", [ai.Media(kind, mime, data)], voice=bool(message.voice)
+        message, user, message.caption or "", [ai.Media(kind, mime, data, name)], voice=bool(message.voice)
     )
 
 

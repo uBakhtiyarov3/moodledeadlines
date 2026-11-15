@@ -29,7 +29,8 @@ REFUSAL = {
     "en": "Sorry, I can't help with that. Ask me about UWED, your studies or deadlines.",
 }
 # What gets stored in the chat history in place of the media itself
-MEDIA_LABEL = {"image": "[🖼 rasm / image]", "audio": "[🎤 ovozli xabar / voice message]", "document": "[📄 PDF]"}
+MEDIA_LABEL = {"image": "[🖼 rasm / image]", "audio": "[🎤 ovozli xabar / voice message]", "document": "[📄 PDF]",
+               "video": "[🎬 video]"}
 
 
 class AIUnavailable(Exception):
@@ -40,9 +41,14 @@ class AIUnavailable(Exception):
 
 @dataclass
 class Media:
-    kind: str  # "image" | "audio" | "document" (PDF)
-    mime: str  # e.g. image/jpeg, audio/ogg
+    kind: str  # "image" | "audio" | "video" | "document" (PDF, or text extracted from Word/Excel/…)
+    mime: str  # e.g. image/jpeg, audio/ogg, text/plain
     data: bytes
+    name: str = ""
+
+    @property
+    def label(self) -> str:
+        return f"[📄 {self.name}]" if self.kind == "document" and self.name else MEDIA_LABEL[self.kind]
 
 
 def today() -> str:
@@ -81,6 +87,11 @@ MEDIA_HINT = (
     "under <tutor_mode>.\n"
     "- Image: it may be an assignment, a page, a screenshot or the student's own work. Describe only "
     "what's needed; apply <tutor_mode> — explain and review, never solve graded tasks for them.\n"
+    "- Word / PowerPoint / Excel / text or code files arrive as their extracted text, headed "
+    "'=== File: name ==='. Formatting and pictures inside them are lost, so judge content and "
+    "structure, not looks. Slides are marked '--- Slide N ---', spreadsheets '--- Sheet ---' with "
+    "' | ' between cells.\n"
+    "- Video: watch it and answer about what is said and shown.\n"
     "</media_handling>"
 )
 
@@ -385,7 +396,7 @@ async def _save(user_id: int, question: str, media: list[Media], answer: str) ->
         u = await s.get(User, user_id)
         if u.ai_day != today():
             u.ai_day, u.ai_used_today = today(), 0
-        stored_q = " ".join(filter(None, [*(MEDIA_LABEL[m.kind] for m in media), question]))
+        stored_q = " ".join(filter(None, [*(m.label for m in media), question]))
         s.add(ChatMessage(user_id=user_id, role="user", content=stored_q))
         s.add(ChatMessage(user_id=user_id, role="assistant", content=answer))
         u.ai_used_today += 1

@@ -220,14 +220,19 @@ T: dict[str, dict[str, str]] = {
         "en": "🎤 That voice message is too long. Keep it under {n} minutes.",
     },
     "file_too_big": {
-        "uz": "📦 Fayl juda katta (15 MB gaça).",
-        "ru": "📦 Файл слишком большой (до 15 МБ).",
-        "en": "📦 The file is too large (max 15 MB).",
+        "uz": "📦 Fayl juda katta: rasm, PDF, audio va video 14 MB gaça, Word/Excel kabi hujjatlar 20 MB gaça.",
+        "ru": "📦 Файл слишком большой: фото, PDF, аудио и видео до 14 МБ, документы Word/Excel до 20 МБ.",
+        "en": "📦 The file is too large: images, PDF, audio and video up to 14 MB, Word/Excel documents up to 20 MB.",
     },
     "unsupported_file": {
-        "uz": "📎 Bu turdagi faylni öqiy olmayman. Matn, ovozli xabar, rasm yoki PDF yuboring.",
-        "ru": "📎 Такой файл я не читаю. Отправьте текст, голосовое, фото или PDF.",
-        "en": "📎 I can't read this file type. Send text, a voice message, a photo or a PDF.",
+        "uz": "📎 Bu turdagi faylni öqiy olmayman. Word, PowerPoint, Excel, PDF, rasm, audio, video yoki matn fayl yuboring.",
+        "ru": "📎 Такой файл я не читаю. Пришлите Word, PowerPoint, Excel, PDF, фото, аудио, видео или текстовый файл.",
+        "en": "📎 I can't read this file type. Send Word, PowerPoint, Excel, PDF, an image, audio, video or a text file.",
+    },
+    "old_format": {
+        "uz": "📎 Bu eski format (.doc / .ppt / .xls). Faylni .docx / .pptx / .xlsx yoki PDF qilib saqlab yuboring.",
+        "ru": "📎 Это старый формат (.doc / .ppt / .xls). Сохраните файл как .docx / .pptx / .xlsx или PDF.",
+        "en": "📎 That's an old format (.doc / .ppt / .xls). Save it as .docx / .pptx / .xlsx or PDF and send again.",
     },
     "app_unavailable": {
         "uz": "📱 Ilova (Mini App) hozirça oçilmaydi — tez orada işga tuşadi. "

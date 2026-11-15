@@ -244,17 +244,16 @@
   function setAttachment(a) {
     attached = a;
     $("#attach-chip").classList.toggle("hidden", !a);
-    if (a) $("#attach-name").textContent = (a.mime === "application/pdf" ? "📄 " : "🖼 ") + a.name;
+    if (a) $("#attach-name").textContent = (a.mime.startsWith("image/") ? "🖼 " : a.mime.startsWith("video/") ? "🎬 " : a.mime.startsWith("audio/") ? "🎧 " : "📄 ") + a.name;
     $("#ai-file").value = "";
   }
   $("#ai-file").onchange = (e) => {
     const f = e.target.files[0];
     if (!f) return;
-    if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(f.type)) { toast(t("unsupported"), "error"); return; }
     if (f.size > 10 * 1024 * 1024) { toast(t("file_big"), "error"); return; }
     const reader = new FileReader();
     reader.onload = () => setAttachment({
-      mime: f.type, name: f.name, b64: String(reader.result).split(",")[1],
+      mime: f.type || "", name: f.name, b64: String(reader.result).split(",")[1],
       url: f.type.startsWith("image/") ? URL.createObjectURL(f) : null,
     });
     reader.readAsDataURL(f);
@@ -277,7 +276,7 @@
     const typing = bubble('<span class="typing"><i></i><i></i><i></i></span>');
     try {
       const body = { message: text };
-      if (att) { body.file_b64 = att.b64; body.file_mime = att.mime; }
+      if (att) { body.file_b64 = att.b64; body.file_mime = att.mime; body.file_name = att.name; }
       const r = await api("/api/ai", { body });
       typing.remove(); bubble(r.html);
       (r.actions || []).forEach(actionCard);
@@ -285,7 +284,7 @@
       me.ai_left = Math.max(0, me.ai_left - 1); renderAiLeft();
     } catch (e) {
       typing.remove();
-      bubble("⚠️ " + esc(t({ limit: "ai_limit", disabled: "ai_disabled", busy: "ai_busy", unsupported: "unsupported" }[e.detail] || "ai_error")));
+      bubble("⚠️ " + esc(t({ limit: "ai_limit", disabled: "ai_disabled", busy: "ai_busy", unsupported: "unsupported", old_format: "old_format" }[e.detail] || "ai_error")));
     }
   }
   // buttons the assistant put under its reply: say → next message, url → link, app → section

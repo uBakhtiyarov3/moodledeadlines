@@ -12,7 +12,7 @@ from app.i18n import LANGS
 from app.models import ChatMessage, Deadline, User
 from app.moodle import ws
 from app.moodle.ical import IcalUrlError
-from app.services import agent, ai, linking, profile, support, users
+from app.services import agent, ai, files, linking, profile, support, users
 from app.services import settings as rt
 from app.services.sync import sync_user
 from app.services.tg_html import markdown_to_tg
@@ -167,22 +167,23 @@ class AskIn(BaseModel):
     message: str = Field(default="", max_length=4000)
     file_b64: str | None = Field(default=None, max_length=14_000_000)  # ~10 MB
     file_mime: str | None = None
-
-
-FILE_KINDS = {"image/jpeg": "image", "image/png": "image", "image/webp": "image", "application/pdf": "document"}
+    file_name: str | None = Field(default=None, max_length=255)
 
 
 @router.post("/ai")
 async def ask(body: AskIn, user: User = Depends(current_user), b=Depends(bot)):
     media = []
     if body.file_b64:
-        kind = FILE_KINDS.get(body.file_mime or "")
-        if not kind:
-            raise HTTPException(400, "unsupported")
         try:
-            media.append(ai.Media(kind, body.file_mime, base64.b64decode(body.file_b64, validate=True)))
+            raw = base64.b64decode(body.file_b64, validate=True)
         except ValueError as e:
             raise HTTPException(400, "bad_file") from e
+        name = body.file_name or "file"
+        try:
+            kind, mime, data = files.prepare(name, body.file_mime or "", raw)
+        except files.UnsupportedFile as e:
+            raise HTTPException(400, "old_format" if e.args[0] == "old_format" else "unsupported") from e
+        media.append(ai.Media(kind, mime, data, name))
     if not body.message.strip() and not media:
         raise HTTPException(400, "empty")
     ctx = agent.Ctx(user=user, bot=b)

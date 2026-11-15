@@ -180,7 +180,7 @@ async def test_admin_access_and_features(client, monkeypatch):
     assert parts[0]["inline_data"] == {"mime_type": "image/png", "data": png} and parts[1] == {"text": "tekshir"}
     # history keeps a label, not the bytes; previous turns become user/model roles
     assert [c["role"] for c in sent[-1]["contents"]] == ["user", "model", "user"]
-    bad = await client.post("/api/ai", headers=ha, json={"message": "x", "file_b64": png, "file_mime": "video/mp4"})
+    bad = await client.post("/api/ai", headers=ha, json={"message": "x", "file_b64": png, "file_mime": "application/x-msdownload", "file_name": "setup.exe"})
     assert bad.status_code == 400
 
     # rate limited by Google → friendly "busy"

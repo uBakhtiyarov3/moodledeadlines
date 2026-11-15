@@ -85,7 +85,7 @@ UW.setDict({
   q4: { uz: "Vaqtni qanday rejalaştiray?", ru: "Как спланировать время?", en: "How should I plan my time?" },
   file_big: { uz: "Fayl 10 MB dan katta", ru: "Файл больше 10 МБ", en: "File is larger than 10 MB" },
   ai_busy: { uz: "AI band, birozdan söng urinib köring", ru: "ИИ занят, попробуйте чуть позже", en: "The AI is busy, try again shortly" },
-  unsupported: { uz: "Faqat rasm yoki PDF", ru: "Только фото или PDF", en: "Images or PDF only" },
+  unsupported: { uz: "Bu faylni öqib bölmaydi — Word, PowerPoint, Excel, PDF, rasm, audio, video yoki matn yuboring", ru: "Этот файл не читается — пришлите Word, PowerPoint, Excel, PDF, фото, аудио, видео или текст", en: "Can't read this file — send Word, PowerPoint, Excel, PDF, an image, audio, video or text" },
   ai_voice_tip: { uz: "🎤 Ovozli savolni bot çatida yuboring", ru: "🎤 Голосовой вопрос отправьте в чат бота", en: "🎤 Send voice questions in the bot chat" },
   ai_disabled: { uz: "AI vaqtinça öçirilgan", ru: "ИИ временно отключён", en: "AI is temporarily disabled" },
   ai_limit: { uz: "Bugungi limit tugadi", ru: "Дневной лимит исчерпан", en: "Daily limit reached" },
@@ -150,4 +150,5 @@ UW.setDict({
   act_cancelled: { uz: "Bekor qilindi", ru: "Отменено", en: "Cancelled" },
   act_failed: { uz: "⚠️ Bajarilmadi", ru: "⚠️ Не выполнено", en: "⚠️ Failed" },
   act_expired: { uz: "⌛ Muddati ötgan — qaytadan sörang", ru: "⌛ Устарело — попросите заново", en: "⌛ Expired — ask again" },
+  old_format: { uz: "Eski format (.doc/.ppt/.xls) — .docx/.pptx/.xlsx yoki PDF qilib yuboring", ru: "Старый формат (.doc/.ppt/.xls) — сохраните как .docx/.pptx/.xlsx или PDF", en: "Old format (.doc/.ppt/.xls) — save as .docx/.pptx/.xlsx or PDF" },
 });

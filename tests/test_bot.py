@@ -132,7 +132,7 @@ async def test_ai_new_and_non_text(tg):
     async with Session() as s:
         assert (await s.execute(select(func.count(ChatMessage.id)).where(ChatMessage.user_id == 902))).scalar_one() == 0
     out = await tg(sticker=True, uid=902)
-    assert "PDF yuboring" in texts(out)[0]
+    assert "matn fayl yuboring" in texts(out)[0]
 
 
 async def test_voice_and_photo_go_to_ai(tg, monkeypatch):

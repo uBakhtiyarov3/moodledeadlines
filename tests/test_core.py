@@ -324,3 +324,57 @@ def test_rich_escape_and_time():
     assert esc("Essay #2 [draft] *v1.0*") == r"Essay \#2 \[draft\] \*v1\.0\*"
     dt = datetime(2026, 10, 12, 17, 0, tzinfo=timezone.utc)
     assert tg_time(dt, "r", "5 soat") == "![5 soat](tg://time?unix=1791824400&format=r)"
+
+
+def test_files_become_readable():
+    """Office documents turn into text; media passes through; old binary formats are refused."""
+    import io
+    import zipfile
+
+    import docx
+    import openpyxl
+    import pptx
+    import pytest
+
+    from app.services import files
+
+    d = docx.Document()
+    d.add_paragraph("Kirish: Markaziy Osiyo")
+    table = d.add_table(rows=2, cols=2)
+    for (r, c), v in {(0, 0): "Mezon", (0, 1): "Ball", (1, 0): "Tahlil & dalil", (1, 1): "40"}.items():
+        table.cell(r, c).text = v
+    buf = io.BytesIO()
+    d.save(buf)
+    kind, mime, data = files.prepare("esse.docx", "application/octet-stream", buf.getvalue())
+    assert (kind, mime) == ("document", "text/plain")
+    assert data.decode() == "=== File: esse.docx ===\nKirish: Markaziy Osiyo\nMezon | Ball\nTahlil & dalil | 40"
+
+    p = pptx.Presentation()
+    for title in ("Reja", "Xulosa"):
+        p.slides.add_slide(p.slide_layouts[5]).shapes.title.text = title
+    buf = io.BytesIO()
+    p.save(buf)
+    assert "--- Slide 1 ---\nReja\n\n--- Slide 2 ---\nXulosa" in files.prepare("s.pptx", "", buf.getvalue())[2].decode()
+
+    wb = openpyxl.Workbook()
+    wb.active.title = "Baholar"
+    wb.active.append(["Ism", "Ball"])
+    wb.active.append(["Ali", 87.5])
+    buf = io.BytesIO()
+    wb.save(buf)
+    assert "--- Baholar ---\nIsm | Ball\nAli | 87.5" in files.prepare("j.xlsx", "", buf.getvalue())[2].decode()
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("content.xml", '<office:document-content><text:p>Salom<text:s text:c="2"/>dunyo</text:p>'
+                                  '<text:p>Ikkinchi &amp; oxirgi</text:p></office:document-content>')
+    assert files.prepare("a.odt", "", buf.getvalue())[2].decode().endswith("Salom  dunyo\nIkkinchi & oxirgi")
+
+    assert files.prepare("kod.py", "", "print('salom')".encode())[2].decode().endswith("print('salom')")
+    assert files.prepare("eski.txt", "", "Привет".encode("cp1251"))[2].decode().endswith("Привет")
+    assert files.prepare("v.mp4", "application/octet-stream", b"x")[:2] == ("video", "video/mp4")
+    assert files.prepare("r.pdf", "application/pdf", b"%PDF")[:2] == ("document", "application/pdf")
+    with pytest.raises(files.UnsupportedFile, match="old_format"):
+        files.prepare("eski.doc", "application/msword", b"\xd0\xcf")
+    with pytest.raises(files.UnsupportedFile):
+        files.prepare("setup.exe", "application/x-msdownload", b"MZ")
