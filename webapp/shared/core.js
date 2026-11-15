@@ -99,6 +99,7 @@
       document.body.appendChild(el);
     }
     el.textContent = msg;
+    el.dataset.kind = kind || "";
     el.classList.add("show");
     haptic(kind === "error" ? "error" : kind === "success" ? "success" : "light");
     clearTimeout(toastTimer);
@@ -113,17 +114,35 @@
       wrap.innerHTML = '<div class="scrim"></div><div class="sheet glass strong" role="dialog" aria-modal="true"></div>';
       document.body.appendChild(wrap);
       wrap.querySelector(".scrim").onclick = closeSheet;
+      sheetDrag(wrap.querySelector(".sheet"));
     }
     const sheet = wrap.querySelector(".sheet");
+    clearTimeout(sheetTimer);
+    wrap.classList.remove("closing", "fading");
+    sheet.style.transform = "";
     sheet.innerHTML = '<div class="grabber"></div>' + html;
+    sheet.scrollTop = 0;
+    $$(".segmented", sheet).forEach(segMotion);
     wrap.classList.add("open");
     if (tg && tg.BackButton) { tg.BackButton.show(); tg.BackButton.onClick(closeSheet); }
     if (onMount) onMount(sheet);
     return sheet;
   }
-  function closeSheet() {
+  let sheetTimer;
+  function closeSheet(dragged) {
     const wrap = $("#sheet");
-    if (wrap) wrap.classList.remove("open");
+    if (wrap && wrap.classList.contains("open") && !wrap.classList.contains("closing") && !wrap.classList.contains("fading")) {
+      const sheet = wrap.querySelector(".sheet");
+      if (dragged === true) {  // already under the finger: keep sliding from where it is
+        sheet.style.transform = "translateY(105%)";
+        wrap.classList.add("fading");
+      } else {
+        sheet.style.transform = "";
+        wrap.classList.add("closing");  // slide down, then really hide
+      }
+      clearTimeout(sheetTimer);
+      sheetTimer = setTimeout(() => { wrap.classList.remove("open", "closing", "fading"); sheet.style.transform = ""; }, calm ? 0 : 260);
+    }
     if (tg && tg.BackButton) { tg.BackButton.offClick(closeSheet); tg.BackButton.hide(); }
   }
   function confirmDialog(msg) {
@@ -138,6 +157,129 @@
   function openLink(url) {
     if (tg && tg.openLink) tg.openLink(url); else window.open(url, "_blank");
   }
+
+
+  // --- motion ----------------------------------------------------------------
+  const calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Dock: a glass pill slides to the active tab; pages slide in the direction of travel.
+  function dockMotion(dock) {
+    const pill = document.createElement("i");
+    pill.className = "dock-pill";
+    dock.prepend(pill);
+    let last = -1;
+    const place = () => {
+      const btns = $$("button", dock);
+      const idx = btns.findIndex((b) => b.classList.contains("active"));
+      if (idx < 0 || !dock.clientWidth) return;
+      const cs = getComputedStyle(dock);
+      const pad = parseFloat(cs.paddingLeft) || 0, gap = parseFloat(cs.columnGap) || 0;
+      const grow = parseFloat(cs.getPropertyValue("--dock-grow")) || 1;
+      // the layout the tabs are animating towards (flex-grow: active = grow, others = 1)
+      const unit = (dock.clientWidth - pad * 2 - gap * (btns.length - 1)) / (btns.length - 1 + grow);
+      pill.style.width = grow * unit + "px";
+      pill.style.transform = `translateX(${pad + idx * (unit + gap)}px)`;
+      if (last >= 0 && idx !== last) document.documentElement.dataset.nav = idx > last ? "fwd" : "back";
+      last = idx;
+    };
+    new MutationObserver(place).observe(dock, { subtree: true, attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("resize", place);
+    place();
+    requestAnimationFrame(() => requestAnimationFrame(() => dock.classList.add("ready")));
+  }
+
+  // Segmented controls: a thumb slides under the active option.
+  function segMotion(seg) {
+    if (seg.classList.contains("has-thumb")) return;
+    const thumb = document.createElement("i");
+    thumb.className = "seg-thumb";
+    seg.prepend(thumb);
+    seg.classList.add("has-thumb");
+    const place = () => {
+      const b = $("button.active", seg);
+      if (!b || !b.offsetWidth) return;
+      thumb.style.width = b.offsetWidth + "px";
+      thumb.style.transform = `translateX(${b.offsetLeft}px)`;
+      requestAnimationFrame(() => seg.classList.add("ready"));
+    };
+    new MutationObserver(place).observe(seg, { subtree: true, attributes: true, attributeFilter: ["class"] });
+    if (window.ResizeObserver) new ResizeObserver(place).observe(seg);  // also when its page becomes visible
+    place();
+  }
+
+  // Count a number up to its value (keeps any prefix/suffix, e.g. "78 %").
+  function countUp(el, ms = 700) {
+    const m = String(el.textContent).match(/^(\D*)(\d+(?:[.,]\d+)?)(.*)$/);
+    if (!m || calm) return;
+    const [, pre, num, post] = m, to = parseFloat(num.replace(",", ".")), dec = (num.split(/[.,]/)[1] || "").length;
+    const sep = num.includes(",") ? "," : ".", t0 = performance.now();
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / ms), eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = pre + (to * eased).toFixed(dec).replace(".", sep) + post;
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  // A short burst of brand-coloured confetti (for finished tasks).
+  function confetti(x = innerWidth / 2, y = innerHeight * 0.6) {
+    if (calm) return;
+    const c = document.createElement("canvas");
+    c.className = "confetti";
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    document.body.appendChild(c);
+    const g = c.getContext("2d");
+    g.scale(dpr, dpr);
+    const colors = ["#8a0119", "#123654", "#ffffff", "#d2687a", "#6f93b8", "#22c55e", "#f59e0b"];
+    const bits = Array.from({ length: 90 }, () => {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, v = 7 + Math.random() * 9;
+      return { x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, w: 5 + Math.random() * 6, h: 3 + Math.random() * 4,
+               r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.5, c: colors[(Math.random() * colors.length) | 0] };
+    });
+    const t0 = performance.now();
+    const frame = (now) => {
+      const life = (now - t0) / 1500;
+      g.clearRect(0, 0, innerWidth, innerHeight);
+      if (life >= 1) { c.remove(); return; }
+      bits.forEach((b) => {
+        b.vy += 0.32; b.vx *= 0.99; b.x += b.vx; b.y += b.vy; b.r += b.vr;
+        g.save(); g.translate(b.x, b.y); g.rotate(b.r);
+        g.globalAlpha = Math.max(0, 1 - life * life); g.fillStyle = b.c;
+        g.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); g.restore();
+      });
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }
+
+  // Drag a sheet down to close it.
+  function sheetDrag(sheet) {
+    let y0 = null, dy = 0, t0 = 0;
+    sheet.addEventListener("touchstart", (e) => {
+      if (sheet.scrollTop > 0 || e.target.closest("input, textarea, select")) { y0 = null; return; }
+      y0 = e.touches[0].clientY; dy = 0; t0 = Date.now();
+    }, { passive: true });
+    sheet.addEventListener("touchmove", (e) => {
+      if (y0 === null) return;
+      dy = e.touches[0].clientY - y0;
+      if (dy <= 0) { if (sheet.classList.contains("dragging")) sheet.style.transform = ""; return; }
+      if (dy > 6) { sheet.classList.add("dragging"); e.preventDefault(); sheet.style.transform = `translateY(${dy}px)`; }
+    }, { passive: false });
+    sheet.addEventListener("touchend", () => {
+      if (y0 === null || !sheet.classList.contains("dragging")) { y0 = null; return; }
+      sheet.classList.remove("dragging");
+      const fast = dy / Math.max(1, Date.now() - t0) > 0.6;
+      if (dy > 120 || (fast && dy > 40)) closeSheet(true); else sheet.style.transform = "";
+      y0 = null;
+    });
+  }
+
+  function initMotion() {
+    $$(".dock").forEach(dockMotion);
+    $$(".segmented").forEach(segMotion);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initMotion); else initMotion();
 
   // Tiny inline icon set (SF-Symbols-like strokes)
   const I = {
@@ -166,5 +308,6 @@
   }
 
   window.UW = { tg, api, fmt, startPage, ApiError, t, setLang, translate, get lang() { return lang; }, setDict: (d) => (dict = d),
-    $, $$, esc, haptic, toast, openSheet, closeSheet, confirmDialog, revealSpoilers, openLink, I };
+    $, $$, esc, haptic, toast, openSheet, closeSheet, confirmDialog, revealSpoilers, openLink, I,
+    confetti, countUp, segMotion };
 })();

@@ -1,11 +1,13 @@
 """The one place the UWED Pulse version lives. Bump it (and add to CHANGES) with every release."""
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 RELEASED = "2026-11-15"
 
 # What's new, shown in the Mini App (tap the version): this release first, then the previous big one.
 CHANGES = {
     "uz": [
+        "✨ Yangi dizayn: silliq animatsiyalar, sirpanuvçi menyu, sahifalar yön böyiça almaşadi",
+        "👆 Oynalarni pastga tortib yopiş, bosganda jonli javob, vazifa bajarilganda konfetti",
         "🎓 Baholar bölimi: Moodle'dagi har bir kurs böyiça baholar, ustoz izohlari va jami ball",
         "🙈 Keraksiz kurslarni yaşiriş — baholari, deadlinelari va eslatmalari körinmaydi",
         "📛 Kurs nomlari töliq körsatiladi",
@@ -18,6 +20,8 @@ CHANGES = {
         "🔤 Yangi özbek lotin alifbosi",
     ],
     "ru": [
+        "✨ Новый дизайн: плавные анимации, скользящее меню, страницы листаются по направлению",
+        "👆 Окна закрываются свайпом вниз, живой отклик на нажатия, конфетти за выполненное задание",
         "🎓 Раздел «Оценки»: оценки по каждому курсу Moodle, комментарии преподавателей и итог",
         "🙈 Ненужные курсы можно скрыть — без их оценок, дедлайнов и напоминаний",
         "📛 Названия курсов показываются полностью",
@@ -30,6 +34,8 @@ CHANGES = {
         "🔤 Новый узбекский латинский алфавит",
     ],
     "en": [
+        "✨ New design: smooth animations, a sliding tab bar, pages that move the way you navigate",
+        "👆 Swipe sheets down to close, lively touch feedback, confetti when a task is done",
         "🎓 Grades: every Moodle course with its grades, teacher feedback and total",
         "🙈 Hide courses you don't need — their grades, deadlines and reminders go away",
         "📛 Full course names",

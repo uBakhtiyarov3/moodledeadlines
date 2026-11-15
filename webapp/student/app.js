@@ -52,8 +52,9 @@
   $$("[data-icon]").forEach((el) => (el.innerHTML = I[el.dataset.icon]));
 
   // ---------- deadlines ----------
-  function renderHero() {
+  function renderHero(quiet) {
     const now = Date.now();
+    $("#hero").classList.toggle("no-anim", !!quiet);
     const up = scope === "upcoming" ? items : [];
     const hero = $("#hero");
     if (scope !== "upcoming") { hero.classList.add("hidden"); return; }
@@ -90,10 +91,16 @@
         </div>
       </div>`;
     hero.onclick = () => openDetail(next);
+    if (!quiet) {  // the ring draws itself from empty
+      const bar = $(".ring .bar", hero), target = bar.getAttribute("stroke-dashoffset");
+      bar.style.transition = "none"; bar.setAttribute("stroke-dashoffset", C);
+      requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.transition = ""; bar.setAttribute("stroke-dashoffset", target); }));
+    }
   }
 
-  function renderList() {
+  function renderList(quiet) {
     const box = $("#deadline-list");
+    box.classList.toggle("no-anim", !!quiet);
     if (!items.length) {
       box.innerHTML = scope === "upcoming" ? "" :
         `<div class="glass empty"><div class="art">${scope === "done" ? "✅" : "🗂"}</div><div class="muted">${t(scope === "done" ? "empty_done" : "empty_past")}</div></div>`;
@@ -149,6 +156,7 @@
       $("#toggle-done", sheet).onclick = async () => {
         try {
           await api(`/api/deadlines/${d.id}/done`, { body: { done: !d.completed } });
+          if (!d.completed) UW.confetti();
           toast(t("marked"), "success"); closeSheet(); loadDeadlines();
         } catch (e) { toast(errText(e), "error"); }
       };
@@ -210,7 +218,7 @@
   let chatLoaded = false;
   function bubble(html, mine) {
     const el = document.createElement("div");
-    el.className = "bubble" + (mine ? " me" : "");
+    el.className = "bubble pop" + (mine ? " me" : "");
     el.innerHTML = html;
     revealSpoilers(el);
     $$("a", el).forEach((a) => (a.onclick = (ev) => { ev.preventDefault(); openLink(a.href); }));
@@ -445,12 +453,15 @@
   const gradeText = (g) => (g && g.grade ? g.grade + (g.max != null && !String(g.grade).includes("%") ? ` / ${+g.max}` : "") : "—");
   async function loadGrades(refresh) {
     const list = $("#grades-list");
-    if (!grades || refresh) list.innerHTML = '<div class="glass card center muted">…</div>';
+    if (!grades || refresh) list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+    $("#btn-grades").style.animation = refresh ? "spin 1s linear infinite" : "";
     try {
       grades = await api("/api/grades" + (refresh ? "?refresh=true" : ""));
       renderGrades();
+      $$(".course-total b", list).forEach((el) => UW.countUp(el));
       if (refresh) toast(t("sync_ok"), "success");
     } catch (e) { list.innerHTML = ""; toast(errText(e), "error"); }
+    $("#btn-grades").style.animation = "";
   }
   function renderGrades() {
     const list = $("#grades-list");
@@ -477,10 +488,10 @@
         <div class="course-head" data-open="${i}" style="cursor:pointer">
           <div class="grow"><div class="course-name">${esc(c.fullname)}</div>
             <div class="meta small muted">${t("graded_n", { n: graded.length, m: c.items.length })}</div></div>
-          <div class="course-total">${c.total && c.total.grade ? esc(c.total.grade) : "—"}<small>${t("course_total")}</small></div>
+          <div class="course-total"><b>${c.total && c.total.grade ? esc(c.total.grade) : "—"}</b><small>${t("course_total")}</small></div>
         </div>
         ${c.total && c.total.percent != null ? `<div class="bar"><i style="width:${Math.max(0, Math.min(100, c.total.percent))}%"></i></div>` : ""}
-        <div class="course-items hidden" id="ci-${i}">
+        <div class="course-items" id="ci-${i}"><div>
           ${c.items.map((g) => `<div class="grade-row">
             <div class="grade-line"><div class="grow">${esc(g.name)}</div><div class="grade-val">${esc(gradeText(g))}</div></div>
             ${g.percent != null ? `<div class="bar"><i style="width:${Math.max(0, Math.min(100, g.percent))}%"></i></div>` : ""}
@@ -490,9 +501,9 @@
             <button class="btn sm" data-ask="${i}">🤖 ${t("grades_ask")}</button>
             <button class="btn sm ghost" data-hide="${i}">${I.eyeoff} ${t("hide_course")}</button>
           </div>
-        </div></div>`;
+        </div></div></div>`;
     }).join("");
-    $$("[data-open]", list).forEach((h) => (h.onclick = () => { $("#ci-" + h.dataset.open).classList.toggle("hidden"); haptic("light"); }));
+    $$("[data-open]", list).forEach((h) => (h.onclick = () => { h.closest(".course").classList.toggle("open"); haptic("light"); }));
     $$("[data-link]", list).forEach((a) => (a.onclick = (ev) => { ev.preventDefault(); openLink(a.href); }));
     $$("[data-ask]", list).forEach((b) => (b.onclick = () => {
       const c = grades.courses[+b.dataset.ask];
@@ -676,7 +687,7 @@
     setSupBadge(me.support_unread || 0);
     loadProfile();
     if (me.linked) loadDeadlines();
-    setInterval(() => { if (scope === "upcoming") { renderHero(); renderList(); } }, 30000);
+    setInterval(() => { if (scope === "upcoming") { renderHero(true); renderList(true); } }, 30000);
   }
   boot();
 })();

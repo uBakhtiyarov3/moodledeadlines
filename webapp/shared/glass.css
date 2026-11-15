@@ -267,3 +267,128 @@ textarea.input { resize: vertical; min-height: 90px; }
 
 /* dark mode: brand navy is too dark for foreground use */
 :root[data-theme="dark"] .dock button.active, :root[data-theme="dark"] .item .accent { color: #8fb4d8; }
+
+/* =====================================================================================
+   Motion 2.0 — everything below only animates transform/opacity, so it stays smooth.
+   ===================================================================================== */
+:root {
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+  --smooth: cubic-bezier(.22, 1, .36, 1);
+  --dock-grow: 2.6;  /* how much wider the active tab is */
+}
+.backdrop i { will-change: transform; }
+
+/* ---------- pages: slide in the direction of the tab, sections follow one by one ---------- */
+.page { animation: page-in .45s var(--smooth) backwards; }
+:root[data-nav="fwd"] .page.active { animation-name: page-fwd; }
+:root[data-nav="back"] .page.active { animation-name: page-back; }
+@keyframes page-in { from { opacity: 0; transform: translateY(14px); } }
+@keyframes page-fwd { from { opacity: 0; transform: translateX(30px); } }
+@keyframes page-back { from { opacity: 0; transform: translateX(-30px); } }
+.page.active > * { animation: item-in .5s var(--smooth) backwards; }
+.page.active > :nth-child(2) { animation-delay: .04s; }
+.page.active > :nth-child(3) { animation-delay: .08s; }
+.page.active > :nth-child(4) { animation-delay: .12s; }
+.page.active > :nth-child(5) { animation-delay: .16s; }
+.page.active > :nth-child(6) { animation-delay: .2s; }
+.page.active > :nth-child(n+7) { animation-delay: .24s; }
+@keyframes item-in { from { opacity: 0; transform: translateY(12px) scale(.985); } }
+
+/* ---------- lists: cards arrive one after another ---------- */
+.stack:not(.no-anim) > * { animation: item-in .5s var(--smooth) backwards; }
+.stack > :nth-child(2) { animation-delay: .05s; }
+.stack > :nth-child(3) { animation-delay: .1s; }
+.stack > :nth-child(4) { animation-delay: .15s; }
+.stack > :nth-child(5) { animation-delay: .2s; }
+.stack > :nth-child(6) { animation-delay: .25s; }
+.stack > :nth-child(7) { animation-delay: .3s; }
+.stack > :nth-child(n+8) { animation-delay: .34s; }
+
+/* ---------- dock: icons only, the active tab opens up and a glass pill slides to it ---------- */
+.dock { height: 58px; align-items: stretch; overflow: hidden; }
+.dock .dock-pill {
+  position: absolute; left: 0; top: 6px; bottom: 6px; width: 0; border-radius: 999px; pointer-events: none;
+  background: var(--glass-strong);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 4px 14px rgba(18, 54, 84, .14);
+}
+.dock.ready .dock-pill { transition: transform .5s var(--smooth), width .5s var(--smooth); }
+.dock button {
+  flex: 1 1 0; min-width: 0; flex-direction: row; justify-content: center; gap: 0; padding: 0; z-index: 1;  /* no padding: the pill's maths assumes pure flex-grow widths */
+  font-size: 13px; transition: flex-grow .5s var(--smooth), color .3s, transform .2s var(--spring);
+}
+.dock button.active { flex-grow: var(--dock-grow); background: transparent; box-shadow: none; gap: 7px; }
+.dock button > span:last-child {
+  max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  transition: max-width .5s var(--smooth), opacity .25s;
+}
+.dock button.active > span:last-child { max-width: 120px; opacity: 1; transition-delay: 0s, .12s; }
+.dock button svg { flex: none; transition: transform .3s var(--spring); }
+.dock button.active svg { animation: icon-pop .55s var(--spring); }
+.dock button:active { transform: scale(.9); }
+@keyframes icon-pop { 0% { transform: scale(.7) rotate(-8deg); } 60% { transform: scale(1.18) rotate(4deg); } 100% { transform: none; } }
+
+/* ---------- segmented control: sliding thumb ---------- */
+.segmented { position: relative; }
+.segmented .seg-thumb {
+  position: absolute; left: 0; top: 4px; bottom: 4px; width: 0; border-radius: 999px; pointer-events: none;
+  background: var(--glass-strong); box-shadow: 0 2px 8px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.5);
+}
+.segmented.ready .seg-thumb { transition: transform .4s var(--smooth), width .4s var(--smooth); }
+.segmented.has-thumb button { z-index: 1; transition: color .25s, transform .2s var(--spring); }
+.segmented.has-thumb button.active { background: transparent; box-shadow: none; }
+.segmented button:active { transform: scale(.95); }
+
+/* ---------- touch feedback ---------- */
+.btn { transition: transform .35s var(--spring), opacity .2s, box-shadow .2s, filter .2s; }
+.btn:active { transform: scale(.955); transition-duration: .08s; filter: brightness(1.08); }
+.icon-btn { transition: transform .35s var(--spring), background .2s; }
+.icon-btn:active { transform: scale(.88); transition-duration: .08s; }
+.item { transition: background .2s; }
+.item:active { background: rgba(127, 127, 127, .1); }
+.item .icon { transition: transform .35s var(--spring); }
+.item:active .icon { transform: scale(.9); }
+.item .chev { transition: transform .25s var(--smooth); }
+.item:active .chev { transform: translateX(3px); }
+.switch input:active + span::after { width: 32px; }
+.switch input:checked:active + span::after { transform: translateX(15px); }
+.chip { animation: chip-in .4s var(--spring) backwards; }
+.no-anim .chip { animation: none; }
+@keyframes chip-in { from { opacity: 0; transform: scale(.8); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- bottom sheet: spring up, drag down or tap outside to close ---------- */
+.sheet-wrap .scrim { -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: fade .3s; }
+.sheet { animation: slideup .5s var(--smooth); will-change: transform; touch-action: pan-y; }
+.sheet.dragging { transition: none; }
+.sheet:not(.dragging) { transition: transform .35s var(--smooth); }
+.sheet .grabber { transition: width .2s, opacity .2s; }
+.sheet.dragging .grabber { width: 52px; opacity: .9; }
+.sheet > :not(.grabber) { animation: item-in .45s var(--smooth) .06s backwards; }
+.sheet-wrap.closing .scrim, .sheet-wrap.fading .scrim { animation: fade-out .26s forwards; }
+.sheet-wrap.closing .sheet { animation: slidedown .26s cubic-bezier(.5, 0, .9, .4) forwards; }
+@keyframes slidedown { to { transform: translateY(105%); } }
+@keyframes fade-out { to { opacity: 0; } }
+
+/* ---------- toast: drops in with its kind ---------- */
+.toast { display: flex; align-items: center; gap: 8px; transition: transform .5s var(--spring), opacity .3s; opacity: 0; }
+.toast.show { opacity: 1; }
+.toast::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
+.toast[data-kind="success"]::before { background: var(--ok); box-shadow: 0 0 0 4px rgba(34,197,94,.2); }
+.toast[data-kind="error"]::before { background: var(--danger); box-shadow: 0 0 0 4px rgba(239,68,68,.2); }
+
+/* ---------- chat bubbles pop from their corner ---------- */
+.bubble.pop { animation: bubble-in .4s var(--spring) backwards; transform-origin: 0 100%; }
+.bubble.pop.me { transform-origin: 100% 100%; }
+@keyframes bubble-in { from { opacity: 0; transform: scale(.6) translateY(10px); } }
+
+/* ---------- little lives ---------- */
+.empty .art { animation: floaty 3.6s ease-in-out infinite; display: inline-block; }
+@keyframes floaty { 50% { transform: translateY(-7px) rotate(-4deg); } }
+.skeleton { animation: shimmer 1.3s infinite, item-in .4s var(--smooth) backwards; }
+.skeleton + .skeleton { animation-delay: 0s, .06s; opacity: .8; }
+.skeleton + .skeleton + .skeleton { animation-delay: 0s, .12s; opacity: .6; }
+.confetti { position: fixed; inset: 0; z-index: 200; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
+}
