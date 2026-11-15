@@ -151,4 +151,5 @@ UW.setDict({
   act_failed: { uz: "⚠️ Bajarilmadi", ru: "⚠️ Не выполнено", en: "⚠️ Failed" },
   act_expired: { uz: "⌛ Muddati ötgan — qaytadan sörang", ru: "⌛ Устарело — попросите заново", en: "⌛ Expired — ask again" },
   old_format: { uz: "Eski format (.doc/.ppt/.xls) — .docx/.pptx/.xlsx yoki PDF qilib yuboring", ru: "Старый формат (.doc/.ppt/.xls) — сохраните как .docx/.pptx/.xlsx или PDF", en: "Old format (.doc/.ppt/.xls) — save as .docx/.pptx/.xlsx or PDF" },
+  whats_new: { uz: "Nima yangi", ru: "Что нового", en: "What's new" },
 });

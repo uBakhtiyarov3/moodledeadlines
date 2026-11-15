@@ -360,3 +360,13 @@ async def test_model_switch_from_admin_panel(client):
     assert ai_mod._models()[:2] == ["gemini-3.8-flash", "gemini-flash-latest"]  # no duplicates
     await rt.set_many({"ai_model": ""})
     assert ai_mod._models()[0] == get_settings().gemini_model
+
+
+
+async def test_version_everywhere(client):
+    from app.version import VERSION
+
+    assert (await client.get("/healthz")).json() == {"ok": True, "version": VERSION}
+    me = (await client.get("/api/me", headers=auth(330, lang="ru"))).json()
+    assert me["version"] == VERSION and me["changes"][0].startswith("🤖 ИИ стал агентом")
+    assert (await client.get("/api/admin/stats", headers=auth(1, "Boss"))).json()["version"] == VERSION

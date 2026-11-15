@@ -427,6 +427,7 @@
     renderCourses();
     renderProfileBox();
     $("#admin-box").classList.toggle("hidden", !me.is_admin);
+    $("#version").textContent = `UWED Pulse · v${me.version} · ${t("whats_new")} ›`;
     $("#admin-title").hidden = !me.is_admin;
   }
   function renderCourses() {
@@ -568,6 +569,9 @@
   }));
   $("#paused").onchange = (e) => save({ paused: e.target.checked });
   $("#open-admin").onclick = () => (location.href = "/admin/");
+  $("#version").onclick = () => openSheet(`<h2 style="margin-top:0">✨ UWED Pulse ${esc(me.version)}</h2>
+    <p class="muted small" style="margin-top:-6px">${esc(UW.fmt.day(new Date(me.released)))}</p>
+    <div class="glass list">${(me.changes || []).map((c) => `<div class="item"><div class="grow small">${esc(c)}</div></div>`).join("")}</div>`);
 
   function renderAll() {
     renderSync(); renderSettings(); renderHero(); renderList(); renderSuggestIfEmpty(); renderAiLeft();

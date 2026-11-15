@@ -14,6 +14,7 @@ from app.services import ai, kb, support, users
 from app.services import broadcast as bc
 from app.services import settings as rt
 from app.services.tg_html import markdown_to_tg, sanitize
+from app.version import VERSION
 
 router = APIRouter(prefix="/api/admin", dependencies=[Depends(admin_user)])
 _tasks: set[asyncio.Task] = set()
@@ -60,6 +61,7 @@ async def stats():
         "reminders_day": reminders_day, "ai_questions_day": ai_day, "langs": langs,
         "growth": [{"day": k, "n": v} for k, v in series.items()], "kb": kb.stats(),
         "support_unread": await support.unread_total_for_admins(),
+        "version": VERSION,
     }
 
 

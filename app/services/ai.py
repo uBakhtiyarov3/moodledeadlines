@@ -16,6 +16,7 @@ from app.db import Session
 from app.models import ChatMessage, Deadline, User
 from app.services import agent, kb, profile, users
 from app.services import settings as rt
+from app.version import RELEASED, VERSION, changes
 
 log = logging.getLogger(__name__)
 
@@ -377,6 +378,7 @@ async def _prepare(user: User, question: str, media: list[Media], as_student: bo
         head
         + f"\n\n<admin_notes>\n{rt.get('ai_system_prompt')}\n</admin_notes>\n\n"
         + f"Current time (Tashkent): {now_local:%Y-%m-%d %H:%M, %A}. Student's interface language: {u.lang}.\n\n"
+        + f"UWED Pulse version: {VERSION} ({RELEASED}). What's new: {'; '.join(changes('en'))}.\n\n"
         + f"<knowledge_base>\n{knowledge}\n</knowledge_base>\n\n"
         + f"<student_profile>\n{await profile.context(u)}\n</student_profile>\n\n"
         + f"<student_deadlines>\n{await _deadline_context(user.id)}\n</student_deadlines>"

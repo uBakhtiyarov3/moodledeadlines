@@ -31,6 +31,7 @@
   async function loadDash() {
     try {
       const s = await api("/api/admin/stats");
+      $("#a-version").textContent = `UWED Pulse · v${s.version}`;
       const k = [
         ["k_users", s.users, "navy"], ["k_linked", s.linked, "crimson"],
         ["k_active", s.active_week, "navy"], ["k_new", s.new_day, "crimson"],

@@ -20,6 +20,7 @@ from app.bot.handlers import UserMiddleware, router
 from app.bot.keyboards import app_url
 from app.config import get_settings
 from app.db import init_db
+from app.version import VERSION
 from app.services import coursework, kb, tasks
 from app.services import settings as rt
 from app.services.reminders import dispatch_due_reminders
@@ -66,7 +67,7 @@ async def lifespan(app: FastAPI):
         await setup_bot(bot)
         polling = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
         scheduler.start()
-        log.info("bot polling started")
+        log.info("UWED Pulse v%s: bot polling started", VERSION)
     else:
         log.warning("BOT_TOKEN not set or RUN_BOT=false: API only, scheduler disabled")
     try:
@@ -79,14 +80,14 @@ async def lifespan(app: FastAPI):
         await bot.session.close()
 
 
-app = FastAPI(title="UWED Pulse", lifespan=lifespan, docs_url=None, redoc_url=None)
+app = FastAPI(title="UWED Pulse", version=VERSION, lifespan=lifespan, docs_url=None, redoc_url=None)
 app.include_router(student_api.router)
 app.include_router(admin_api.router)
 
 
 @app.get("/healthz")
 async def health():
-    return {"ok": True}
+    return {"ok": True, "version": VERSION}
 
 
 @app.get("/")

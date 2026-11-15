@@ -16,6 +16,7 @@ from app.services import agent, ai, files, linking, profile, support, users
 from app.services import settings as rt
 from app.services.sync import sync_user
 from app.services.tg_html import markdown_to_tg
+from app.version import RELEASED, VERSION, changes
 
 router = APIRouter(prefix="/api")
 
@@ -55,7 +56,8 @@ def deadline_out(d: Deadline) -> dict:
 
 @router.get("/me")
 async def me(user: User = Depends(current_user)):
-    return {**user_out(user), "support_unread": await support.unread_for_student(user.id)}
+    return {**user_out(user), "support_unread": await support.unread_for_student(user.id),
+            "version": VERSION, "released": RELEASED, "changes": changes(user.lang)}
 
 
 class Prefs(BaseModel):
