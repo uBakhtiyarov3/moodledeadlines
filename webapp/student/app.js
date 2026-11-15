@@ -16,6 +16,12 @@
     return [[mm, t("mins")]];
   }
   function left(ms) { return leftParts(ms).filter(([v], i) => v || i === 0).map(([v, u]) => `${v} ${u}`).join(" "); }
+  // a stable colour and two letters per course
+  function hue(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.codePointAt(0)) % 360; return h; }
+  function initials(s) {
+    const w = String(s).replace(/[^\p{L}\p{N} ]/gu, " ").split(/\s+/).filter((x) => x.length > 1 || /\d/.test(x));
+    return ((w[0] || "?")[0] + (w[1] ? w[1][0] : (w[0] || "")[1] || "")).toUpperCase();
+  }
   function urgency(ms) { return ms < 6 * 3600e3 ? "u-high" : ms < 24 * 3600e3 ? "u-mid" : "u-low"; }
   const fmtTime = UW.fmt.time;
   function dayLabel(d) {
@@ -60,42 +66,32 @@
     if (scope !== "upcoming") { hero.classList.add("hidden"); return; }
     hero.classList.remove("hidden");
     if (!up.length) {
-      hero.innerHTML = `<div style="font-size:48px">🌿</div><div class="grow"><div class="what">${t("all_clear")}</div><div class="muted small">${t("all_clear_d")}</div></div>`;
+      hero.innerHTML = `<div class="hero-empty"><div class="art">🌿</div><div><b>${t("all_clear")}</b><div class="hero-course">${t("all_clear_d")}</div></div></div>`;
+      hero.onclick = null;
       return;
     }
     const next = up[0];
     const ms = new Date(next.due_at) - now;
     const span = 72 * 3600e3;
     const frac = Math.max(0.04, Math.min(1, ms / span));
-    const C = 2 * Math.PI * 34;
-    const color = ms < 6 * 3600e3 ? "var(--danger)" : ms < 24 * 3600e3 ? "var(--warn)" : "var(--ok)";
     const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
     const todayN = up.filter((d) => new Date(d.due_at) <= endOfDay).length;
     const weekN = up.filter((d) => new Date(d.due_at) - now < 7 * 864e5).length;
-    const [[v, u]] = leftParts(ms);
+    const parts = leftParts(ms).slice(0, 2);
     hero.innerHTML = `
-      <div class="ring">
-        <svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="34" fill="none" stroke-width="7"/>
-          <circle class="bar" cx="40" cy="40" r="34" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round"
-            stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - frac)}"/></svg>
-        <div class="label"><div>${esc(v)}<small>${esc(u || "")}</small></div></div>
-      </div>
-      <div class="grow">
-        <div class="kicker">${t("next_deadline")}</div>
-        <div class="what">${esc(next.title)}</div>
-        <div class="muted small ellipsis">${esc(next.course || "")}</div>
-        <div class="stats">
-          ${todayN ? `<span class="chip danger">${t("n_today", { n: todayN })}</span>` : ""}
-          <span class="chip">${t("n_week", { n: weekN })}</span>
-          <span class="chip">${t("n_upcoming", { n: up.length })}</span>
-        </div>
+      <div class="hero-k">${t("next_deadline")}</div>
+      <div class="hero-time">${parts.map(([v, u]) => `<b>${esc(v)}</b><span>${esc(u)}</span>`).join("")}</div>
+      <div class="hero-title">${esc(next.title)}</div>
+      <div class="hero-course">${esc(next.course || "")} · ${dayLabel(new Date(next.due_at))}, ${fmtTime(new Date(next.due_at))}</div>
+      <div class="hero-progress ${urgency(ms)}"><i style="width:${Math.round((1 - frac) * 100)}%"></i></div>
+      <div class="hero-stats">
+        ${todayN ? `<span class="hot">${t("n_today", { n: todayN })}</span>` : ""}
+        <span>${t("n_week", { n: weekN })}</span>
+        <span>${t("n_upcoming", { n: up.length })}</span>
       </div>`;
     hero.onclick = () => openDetail(next);
-    if (!quiet) {  // the ring draws itself from empty
-      const bar = $(".ring .bar", hero), target = bar.getAttribute("stroke-dashoffset");
-      bar.style.transition = "none"; bar.setAttribute("stroke-dashoffset", C);
-      requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.transition = ""; bar.setAttribute("stroke-dashoffset", target); }));
-    }
+    if (quiet) $(".hero-progress i", hero).style.animation = "none";
+    else $$(".hero-time b", hero).forEach((el) => UW.countUp(el, 600));
   }
 
   function renderList(quiet) {
@@ -117,8 +113,8 @@
         ? `<b>${esc(left(ms))}</b><span>${fmtTime(due)}</span>`
         : `<b>${fmtTime(due)}</b><span>${UW.fmt.day(due)}</span>`;
       html += `<div class="glass dl ${scope === "upcoming" ? urgency(ms) : ""} ${d.completed ? "is-done" : ""}" data-id="${d.id}">
-        <div class="stripe"></div>
-        <div class="grow"><div class="t">${esc(d.title)}</div><div class="c ellipsis">${esc(d.course || "")}</div></div>
+        <div class="badge" style="--h:${hue(d.course || d.title)}">${d.completed ? "✓" : esc(initials(d.course || d.title))}</div>
+        <div class="grow"><div class="t">${esc(d.title)}</div><div class="c">${esc(d.course || "")}</div></div>
         <div class="when">${right}</div></div>`;
     });
     box.innerHTML = html;
@@ -164,6 +160,13 @@
       if (ou) ou.onclick = () => openLink(d.url);
     });
   }
+
+  $$("#quick button").forEach((b) => (b.onclick = () => {
+    haptic("light");
+    const q = b.dataset.q;
+    if (q === "remind") { show("ai"); const i = $("#ai-input"); i.value = t("q_remind_text"); i.focus(); return; }
+    show(q);
+  }));
 
   $$("#scope button").forEach((b) => (b.onclick = () => {
     haptic("select");
@@ -458,7 +461,7 @@
     try {
       grades = await api("/api/grades" + (refresh ? "?refresh=true" : ""));
       renderGrades();
-      $$(".course-total b", list).forEach((el) => UW.countUp(el));
+      $$(".course-donut b, .k-val", list).forEach((el) => UW.countUp(el));
       if (refresh) toast(t("sync_ok"), "success");
     } catch (e) { list.innerHTML = ""; toast(errText(e), "error"); }
     $("#btn-grades").style.animation = "";
@@ -482,18 +485,31 @@
       list.innerHTML = `<div class="glass empty"><div class="art">📭</div><div>${t("grades_empty")}</div></div>`;
       return;
     }
-    list.innerHTML = grades.courses.map((c, i) => {
+    const totals = grades.courses.map((c) => c.total && c.total.percent).filter((p) => p != null);
+    const gradedAll = grades.courses.reduce((n, c) => n + c.items.filter((x) => x.grade).length, 0);
+    const summary = `<div class="grades-summary">
+      <div class="glass"><div class="k-val">${totals.length ? Math.round(totals.reduce((a, b) => a + b, 0) / totals.length) + "%" : "—"}</div><div class="k-lbl">${t("avg")}</div></div>
+      <div class="glass"><div class="k-val">${grades.courses.length}</div><div class="k-lbl">${t("courses_n")}</div></div>
+      <div class="glass"><div class="k-val">${gradedAll}</div><div class="k-lbl">${t("graded_lbl")}</div></div></div>`;
+    const gh = (p) => (p == null ? 210 : Math.round(Math.max(0, Math.min(100, p)) * 1.3));  // red → green
+    list.innerHTML = summary + grades.courses.map((c, i) => {
       const graded = c.items.filter((x) => x.grade);
+      const pct = c.total && c.total.percent != null ? Math.max(0, Math.min(100, c.total.percent)) : null;
+      const C = 2 * Math.PI * 26;
       return `<div class="glass course">
         <div class="course-head" data-open="${i}" style="cursor:pointer">
+          <div class="course-donut" style="--gh:${gh(pct)}">
+            <svg viewBox="0 0 62 62"><circle class="trk" cx="31" cy="31" r="26" fill="none" stroke-width="7"/>
+              <circle class="val" cx="31" cy="31" r="26" fill="none" stroke-width="7" stroke-linecap="round"
+                stroke-dasharray="${C}" stroke-dashoffset="${C}" data-off="${pct == null ? C : C * (1 - pct / 100)}"/></svg>
+            <b>${pct == null ? "—" : pct + "%"}</b></div>
           <div class="grow"><div class="course-name">${esc(c.fullname)}</div>
             <div class="meta small muted">${t("graded_n", { n: graded.length, m: c.items.length })}</div></div>
-          <div class="course-total"><b>${c.total && c.total.grade ? esc(c.total.grade) : "—"}</b><small>${t("course_total")}</small></div>
+          <span class="chev">›</span>
         </div>
-        ${c.total && c.total.percent != null ? `<div class="bar"><i style="width:${Math.max(0, Math.min(100, c.total.percent))}%"></i></div>` : ""}
         <div class="course-items" id="ci-${i}"><div>
           ${c.items.map((g) => `<div class="grade-row">
-            <div class="grade-line"><div class="grow">${esc(g.name)}</div><div class="grade-val">${esc(gradeText(g))}</div></div>
+            <div class="grade-line"><div class="grow">${esc(g.name)}</div><div class="grade-val ${g.grade ? "" : "none"}" style="--gh:${gh(g.percent)}">${esc(gradeText(g))}</div></div>
             ${g.percent != null ? `<div class="bar"><i style="width:${Math.max(0, Math.min(100, g.percent))}%"></i></div>` : ""}
             ${g.feedback ? `<div class="grade-fb">${esc(g.feedback)}</div>` : ""}
             ${g.url ? `<a class="small" href="${esc(g.url)}" data-link>Moodle ↗</a>` : ""}</div>`).join("") || `<div class="muted small">${t("grades_none")}</div>`}
@@ -503,6 +519,8 @@
           </div>
         </div></div></div>`;
     }).join("");
+    requestAnimationFrame(() => requestAnimationFrame(() =>
+      $$(".course-donut .val", list).forEach((c) => c.setAttribute("stroke-dashoffset", c.dataset.off))));
     $$("[data-open]", list).forEach((h) => (h.onclick = () => { h.closest(".course").classList.toggle("open"); haptic("light"); }));
     $$("[data-link]", list).forEach((a) => (a.onclick = (ev) => { ev.preventDefault(); openLink(a.href); }));
     $$("[data-ask]", list).forEach((b) => (b.onclick = () => {
@@ -543,12 +561,15 @@
     if (!prof) { box.innerHTML = ""; return; }
     const summary = [prof.faculty, yearLabel(prof.year), prof.group_name].filter(Boolean).join(" · ");
     const mem = !prof.memory_on ? t("memory_off") : prof.memory.length ? t("memory_n", { n: prof.memory.length }) : t("memory_zero");
+    const nm = prof.name || prof.moodle_name || "—";
     box.innerHTML = `
-      <div class="item" id="open-profile"><div class="icon">👤</div>
-        <div class="grow"><div class="title ellipsis">${esc(prof.name || prof.moodle_name || "—")}</div>
-        <div class="meta ellipsis">${esc(summary || t("profile_fill"))}</div></div><span class="chev">›</span></div>
+      <div class="glass profile-card" id="open-profile">
+        <div class="avatar">${esc(nm.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase())}</div>
+        <div class="grow"><div class="p-name">${esc(nm)}</div><div class="p-sub">${esc(summary || t("profile_fill"))}</div></div>
+        <span class="chev">›</span></div>
+      <div class="glass list" style="margin-top:10px">
       <div class="item" id="open-memory"><div class="icon">🧠</div>
-        <div class="grow"><div class="title">${t("memory")}</div><div class="meta">${esc(mem)}</div></div><span class="chev">›</span></div>`;
+        <div class="grow"><div class="title">${t("memory")}</div><div class="meta">${esc(mem)}</div></div><span class="chev">›</span></div></div>`;
     $("#open-profile").onclick = openProfile;
     $("#open-memory").onclick = openMemory;
   }

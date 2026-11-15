@@ -368,5 +368,5 @@ async def test_version_everywhere(client):
 
     assert (await client.get("/healthz")).json() == {"ok": True, "version": VERSION}
     me = (await client.get("/api/me", headers=auth(330, lang="ru"))).json()
-    assert me["version"] == VERSION and me["changes"][0].startswith("✨ Новый дизайн")
+    assert me["version"] == VERSION and me["changes"][0].startswith("🎨 Полностью новый дизайн")
     assert (await client.get("/api/admin/stats", headers=auth(1, "Boss"))).json()["version"] == VERSION

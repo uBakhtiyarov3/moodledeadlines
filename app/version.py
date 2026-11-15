@@ -1,11 +1,14 @@
 """The one place the UWED Pulse version lives. Bump it (and add to CHANGES) with every release."""
 
-VERSION = "2.2.0"
+VERSION = "3.0.0"
 RELEASED = "2026-11-15"
 
 # What's new, shown in the Mini App (tap the version): this release first, then the previous big one.
 CHANGES = {
     "uz": [
+        "🎨 Butunlay yangi dizayn: yangi şrift, toza kartalar, gradientli bosh ekran",
+        "⏱ Bosh ekranda katta taymer, tez amallar va kurs belgili rangli kartalar",
+        "🎓 Baholar: doira diagrammalar, örtaça ball, rangli baholar",
         "✨ Yangi dizayn: silliq animatsiyalar, sirpanuvçi menyu, sahifalar yön böyiça almaşadi",
         "👆 Oynalarni pastga tortib yopiş, bosganda jonli javob, vazifa bajarilganda konfetti",
         "🎓 Baholar bölimi: Moodle'dagi har bir kurs böyiça baholar, ustoz izohlari va jami ball",
@@ -20,6 +23,9 @@ CHANGES = {
         "🔤 Yangi özbek lotin alifbosi",
     ],
     "ru": [
+        "🎨 Полностью новый дизайн: новый шрифт, чистые карточки, градиентный главный экран",
+        "⏱ Большой таймер, быстрые действия и цветные карточки курсов на главной",
+        "🎓 Оценки: круговые диаграммы, средний балл, цветные оценки",
         "✨ Новый дизайн: плавные анимации, скользящее меню, страницы листаются по направлению",
         "👆 Окна закрываются свайпом вниз, живой отклик на нажатия, конфетти за выполненное задание",
         "🎓 Раздел «Оценки»: оценки по каждому курсу Moodle, комментарии преподавателей и итог",
@@ -34,6 +40,9 @@ CHANGES = {
         "🔤 Новый узбекский латинский алфавит",
     ],
     "en": [
+        "🎨 A completely new design: new typeface, clean cards, gradient home screen",
+        "⏱ Big countdown, quick actions and colour-coded course cards on the home screen",
+        "🎓 Grades: progress rings, average score, colour-coded grades",
         "✨ New design: smooth animations, a sliding tab bar, pages that move the way you navigate",
         "👆 Swipe sheets down to close, lively touch feedback, confetti when a task is done",
         "🎓 Grades: every Moodle course with its grades, teacher feedback and total",

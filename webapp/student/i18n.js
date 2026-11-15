@@ -170,4 +170,10 @@ UW.setDict({
   hidden_title: { uz: "Yaşirilgan kurslar", ru: "Скрытые курсы", en: "Hidden courses" },
   hidden_d: { uz: "Bu kurslarning baholari, deadlinelari va eslatmalari körsatilmaydi.", ru: "Оценки, дедлайны и напоминания этих курсов не показываются.", en: "Grades, deadlines and reminders of these courses are not shown." },
   unhide: { uz: "Qaytariş", ru: "Вернуть", en: "Show" },
+  q_ai: { uz: "AI'dan sörash", ru: "Спросить ИИ", en: "Ask AI" },
+  q_remind: { uz: "Eslatma", ru: "Напомнить", en: "Remind me" },
+  q_remind_text: { uz: "Ertaga soat 9:00 da eslat: ", ru: "Напомни завтра в 9:00: ", en: "Remind me tomorrow at 9:00: " },
+  avg: { uz: "Örtaça", ru: "Средний", en: "Average" },
+  courses_n: { uz: "Kurslar", ru: "Курсы", en: "Courses" },
+  graded_lbl: { uz: "Baholangan", ru: "Оценено", en: "Graded" },
 });
