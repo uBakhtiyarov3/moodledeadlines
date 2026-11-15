@@ -254,3 +254,17 @@ class AgentButton(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, index=True)
     text: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class GradeSeen(Base):
+    """Last grade/feedback we saw for a Moodle grade item, to notify only about changes."""
+
+    __tablename__ = "grades_seen"
+    __table_args__ = (UniqueConstraint("user_id", "item_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    item_key: Mapped[str] = mapped_column(String(64))  # "<courseid>:<gradeitemid>"
+    name: Mapped[str] = mapped_column(String(255), default="")
+    fingerprint: Mapped[str] = mapped_column(String(40))
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)

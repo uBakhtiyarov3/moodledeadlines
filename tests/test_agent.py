@@ -274,3 +274,90 @@ async def test_telegram_api_tool(client):  # noqa: F811
     assert "rich_message: InputRichMessage" in ref["params"] and "markdown: str (optional)" in ref["types"]["InputRichMessage"]["fields"]
     assert any(m["method"] == "pinChatMessage" for m in tgapi.reference("pin")["matches"])
     assert "sendRichMessageDraft" in tgapi.names() and "logOut" not in tgapi.names()
+
+
+@pytest.fixture
+async def moodle_student(client, monkeypatch):  # noqa: F811
+    """A student with the Moodle 'Pro' connection and a fake Moodle web service."""
+    import io
+
+    import docx
+
+    from app.moodle import ws
+    from app.security import encrypt
+
+    await client.get("/api/me", headers=auth(310))
+    async with Session() as s:
+        u = await s.get(User, 310)
+        u.ws_token_enc, u.moodle_userid = encrypt("tok"), 77
+        await s.commit()
+
+    d = docx.Document()
+    d.add_paragraph("Mening essem: Markaziy Osiyoda suv muammosi.")
+    buf = io.BytesIO()
+    d.save(buf)
+    grade = {"value": None}
+
+    async def fake_call(token, function, **params):
+        assert token == "tok"
+        if function == "mod_assign_get_assignments":
+            return {"courses": [{"fullname": "Xalqaro munosabatlar", "assignments": [
+                {"id": 5, "cmid": 50, "name": "Esse: suv xavfsizligi", "duedate": 1_900_000_000, "grade": 100,
+                 "intro": "<p>2000 söz. Dalillar va manbalar bilan.</p>",
+                 "introattachments": [{"filename": "talablar.txt", "fileurl": "https://moodle.uwed.uz/f/talablar.txt", "mimetype": "text/plain"}]}]}]}
+        if function == "core_grading_get_definitions":
+            return {"areas": [{"definitions": [{"rubric": {"rubric_criteria": [
+                {"description": "Argument", "levels": [{"score": 0, "definition": "Yöq"}, {"score": 10, "definition": "Kuçli"}]}]}}]}]}
+        if function == "mod_assign_get_submission_status":
+            return {"lastattempt": {"submission": {"status": "submitted", "timemodified": 1_890_000_000, "plugins": [
+                {"type": "file", "fileareas": [{"files": [{"filename": "esse.docx", "fileurl": "https://moodle.uwed.uz/f/esse.docx", "mimetype": ""}]}]}]}}}
+        if function == "core_enrol_get_users_courses":
+            assert params["userid"] == 77
+            return [{"id": 9, "fullname": "Xalqaro munosabatlar"}]
+        if function == "gradereport_user_get_grade_items":
+            items = [{"id": 1, "itemtype": "course", "graderaw": 80}]
+            if grade["value"]:
+                items.append({"id": 3, "itemname": "Esse: suv xavfsizligi", "itemtype": "mod", "itemmodule": "assign", "cmid": 50,
+                              "graderaw": 85, "gradeformatted": grade["value"], "grademax": 100, "feedback": "<p>Manbalar kam.</p>"})
+            return {"usergrades": [{"gradeitems": items}]}
+        raise AssertionError(function)
+
+    async def fake_download(token, url, max_bytes=0):
+        return {"https://moodle.uwed.uz/f/talablar.txt": "Mezon: argument, manbalar".encode(),
+                "https://moodle.uwed.uz/f/esse.docx": buf.getvalue()}.get(url)
+
+    monkeypatch.setattr(ws, "call", fake_call)
+    monkeypatch.setattr(ws, "download", fake_download)
+    async with Session() as s:
+        yield await s.get(User, 310), grade
+
+
+async def test_review_bundle_from_moodle(moodle_student):
+    from app.services import coursework
+
+    user, _ = moodle_student
+    r = await agent.call(agent.Ctx(user=user), "moodle_assignments", {"query": "esse"})
+    assert r["assignments"][0]["assignment_id"] == 5 and "_intro" not in r["assignments"][0]
+    b = await coursework.review_bundle(user, 5)
+    assert b["brief"] == "2000 söz. Dalillar va manbalar bilan."
+    assert "Mezon: argument" in b["brief_files"][0]["text"]
+    assert b["criteria"] == [{"criterion": "Argument", "levels": ["0: Yöq", "10: Kuçli"]}]
+    assert b["submission_status"] == "submitted" and "suv muammosi" in b["submitted_files"][0]["text"]
+    # not connected → a clear instruction instead of a crash
+    r = await agent.call(agent.Ctx(user=User(id=12345)), "moodle_assignments", {})
+    assert "Pro" in r["error"]
+
+
+async def test_new_grade_notification(moodle_student):
+    from app.services import coursework
+
+    user, grade = moodle_student
+    bot = FakeBot()
+    assert await coursework.check_user(bot, user) == 0  # first look: just remembers
+    grade["value"] = "85,00"
+    assert await coursework.check_user(bot, user) == 1
+    msg = bot.sent[-1].rich_message.markdown
+    assert "Yangi baho" in msg and "Esse: suv xavfsizligi" in msg and "**85,00** / 100" in msg and "Manbalar kam\\." in msg
+    buttons = bot.sent[-1].reply_markup.inline_keyboard[0]
+    assert buttons[0].callback_data == "grade:9:3" and buttons[1].url.endswith("/mod/assign/view.php?id=50")
+    assert await coursework.check_user(bot, user) == 0  # nothing new → silent

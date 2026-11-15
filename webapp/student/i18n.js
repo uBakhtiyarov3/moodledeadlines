@@ -108,8 +108,8 @@ UW.setDict({
   relink: { uz: "Linkni yangilaş", ru: "Обновить ссылку", en: "Update link" },
   unlink: { uz: "Moodle'ni uziş", ru: "Отключить Moodle", en: "Disconnect Moodle" },
   unlink_q: { uz: "Moodle uziladi va deadlinelar öçiriladi. Davom etasizmi?", ru: "Moodle будет отключён, дедлайны удалены. Продолжить?", en: "Moodle will be disconnected and deadlines removed. Continue?" },
-  pro_t: { uz: "Avto-«bajarildi» (ixtiyoriy)", ru: "Авто-«сделано» (по желанию)", en: "Auto-“done” (optional)" },
-  pro_d: { uz: "Topşirgan vazifangiz özi aniqlanadi", ru: "Сданные задания определяются сами", en: "Submitted tasks are detected automatically" },
+  pro_t: { uz: "Moodle Pro: baholar va AI tekşiruv", ru: "Moodle Pro: оценки и проверка ИИ", en: "Moodle Pro: grades and AI review" },
+  pro_d: { uz: "Ustoz baho qöysa xabar keladi, AI topşirigingizni mezonlar böyiça tekşiradi, topşirilgan vazifalar özi belgilanadi", ru: "Уведомления об оценках, проверка работ ИИ по критериям, сданное отмечается само", en: "Grade alerts, AI review of your submissions against the criteria, submitted work marked done" },
   pro_on: { uz: "Yoqilgan", ru: "Включено", en: "Enabled" },
   pro_sheet: {
     uz: "Moodle login va parolingiz bilan bir marta kiring. <b>Parol saqlanmaydi</b> — faqat Moodle bergan maxsus token şifrlab saqlanadi. Istalgan payt öçirib qöyişingiz mumkin.",

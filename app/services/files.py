@@ -162,3 +162,28 @@ def _xlsx(z: zipfile.ZipFile, names: list[str], max_rows: int = 2000) -> str:
             rows.append(" | ".join(cells))
         out.append(f"--- {title} ---\n" + "\n".join(rows))
     return "\n\n".join(out)
+
+
+def pdf_text(data: bytes, max_pages: int = 80) -> str:
+    """Text of a PDF (for tool results, where the file itself can't be attached)."""
+    from pypdf import PdfReader
+
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        return "\n\n".join((p.extract_text() or "") for p in reader.pages[:max_pages]).strip()
+    except Exception:  # noqa: BLE001  (broken or encrypted PDF)
+        return ""
+
+
+def as_text(name: str, mime: str, data: bytes) -> str | None:
+    """Best-effort plain text of any file; None for images/audio/video or unreadable files."""
+    try:
+        kind, mime, out = prepare(name, mime, data)
+    except UnsupportedFile:
+        return None
+    if mime == "text/plain":
+        return out.decode()
+    if mime == "application/pdf":
+        text = pdf_text(out)
+        return f"=== File: {name} ===\n{text[:MAX_TEXT]}" if text else None
+    return None

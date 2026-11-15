@@ -49,6 +49,13 @@ async def site_info(token: str) -> tuple[int, str]:
     return int(info["userid"]), str(info.get("fullname") or "").strip()
 
 
+async def site_userid_safe(token: str) -> int | None:
+    try:
+        return (await site_info(token))[0]
+    except (MoodleAuthError, httpx.HTTPError, KeyError, ValueError):
+        return None
+
+
 async def pending_action_event_ids(token: str, days_ahead: int = 90) -> set[int]:
     """Ids of calendar events that still require an action from the student."""
     now = int(datetime.now(timezone.utc).timestamp())
@@ -67,3 +74,23 @@ async def pending_action_event_ids(token: str, days_ahead: int = 90) -> set[int]
             break
         after_id = int(events[-1]["id"])
     return ids
+
+
+async def download(token: str, fileurl: str, max_bytes: int = 20 * 1024 * 1024) -> bytes | None:
+    """A file Moodle lists in a web-service answer (webservice/pluginfile.php needs the token)."""
+    base = get_settings().moodle_base.rstrip("/")
+    if not fileurl.startswith(base):
+        return None  # only the university's Moodle
+    url = fileurl + ("&" if "?" in fileurl else "?") + "token=" + token
+    async with httpx.AsyncClient(timeout=60, follow_redirects=True) as c:
+        async with c.stream("GET", url) as r:
+            if r.status_code != 200:
+                return None
+            chunks, size = [], 0
+            async for chunk in r.aiter_bytes():
+                size += len(chunk)
+                if size > max_bytes:
+                    return None
+                chunks.append(chunk)
+    data = b"".join(chunks)
+    return None if data[:1] == b"{" and b'"exception"' in data[:300] else data

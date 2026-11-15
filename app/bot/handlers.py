@@ -14,7 +14,7 @@ from app.bot.keyboards import admin_kb, lang_kb, main_kb, open_app_kb
 from app.config import get_settings
 from app.db import Session
 from app.i18n import LEGACY_BUTTONS, T, humanize_left, t
-from app.models import AgentButton, ChatMessage, Deadline, User
+from app.models import AgentButton, ChatMessage, Deadline, GradeSeen, User
 from app.moodle.ical import IcalUrlError
 from app.services import agent, ai, files, linking, support, tts, users
 from app.services import settings as rt
@@ -380,6 +380,18 @@ async def buttons_kb(user: User, buttons: list[dict]) -> InlineKeyboardMarkup | 
             rows.setdefault(b.get("row", 0), []).append(btn)
         await s.commit()
     return InlineKeyboardMarkup(inline_keyboard=[rows[k] for k in sorted(rows)]) if rows else None
+
+
+@router.callback_query(F.data.startswith("grade:"))
+async def grade_button(cb: CallbackQuery, user: User):
+    """'Analyse' under a new-grade notification: the assistant explains the grade and feedback."""
+    key = cb.data.split(":", 1)[1]
+    async with Session() as s:
+        row = (await s.execute(select(GradeSeen).where(GradeSeen.user_id == user.id, GradeSeen.item_key == key))).scalar_one_or_none()
+    await cb.answer()
+    if not row or not cb.message or cb.message.chat.type != "private":
+        return
+    await _answer_ai(cb.message, user, t("grade_analyse_q", user.lang, name=row.name))
 
 
 @router.callback_query(F.data.startswith("say:"))

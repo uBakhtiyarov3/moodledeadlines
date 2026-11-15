@@ -255,6 +255,52 @@ async def search_knowledge(ctx: Ctx, query: str):
     return {"results": [{"doc": h.doc_title, "text": h.text} for h in kb.search(query)]}
 
 
+# ================================================================ Moodle coursework (student's own account)
+
+@tool("moodle_assignments",
+      "The student's Moodle assignments (all courses) with ids, due dates and max grades. Needs the "
+      "student's Moodle account connected (Pro).",
+      {"query": S("optional part of the assignment or course name")}, readonly=True)
+async def moodle_assignments(ctx: Ctx, query: str = ""):
+    from app.services import coursework
+
+    try:
+        rows = await coursework.assignments(coursework.token_of(await users.get(ctx.user.id)))
+    except coursework.NotConnected as e:
+        return {"error": str(e)}
+    q = (query or "").lower()
+    rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows
+            if not q or q in (r["name"] or "").lower() or q in (r["course"] or "").lower()]
+    return {"assignments": rows[:60]}
+
+
+@tool("get_assignment_for_review",
+      "Open one Moodle assignment for review: the brief and its files, the grading criteria (rubric or "
+      "marking guide when visible), the student's submitted files/text as text, and the teacher's grade "
+      "and feedback if graded. Use it when the student wants their submission checked or a grade explained.",
+      {"assignment_id": I("from moodle_assignments")}, required=("assignment_id",), readonly=True)
+async def get_assignment_for_review(ctx: Ctx, assignment_id: int):
+    from app.services import coursework
+
+    try:
+        return await coursework.review_bundle(await users.get(ctx.user.id), int(assignment_id))
+    except coursework.NotConnected as e:
+        return {"error": str(e)}
+
+
+@tool("check_new_grades", "Check Moodle right now for new grades or teacher feedback and notify the student.")
+async def check_new_grades(ctx: Ctx):
+    from app.services import coursework
+
+    if not ctx.bot:
+        return {"error": "not available here"}
+    try:
+        n = await coursework.check_user(ctx.bot, await users.get(ctx.user.id))
+    except coursework.NotConnected as e:
+        return {"error": str(e)}
+    return {"ok": True, "new_notifications": n}
+
+
 # ================================================================ Telegram UI (everyone)
 
 APP_SECTIONS = ("deadlines", "ai", "support", "settings", "connect")
