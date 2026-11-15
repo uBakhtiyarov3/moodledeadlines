@@ -156,6 +156,25 @@ b, strong, h1, h2, h3 { letter-spacing: -.02em; }
 
 #hero.hero { display: block; padding: 0; min-height: 0; background: none; border: 0; box-shadow: none; color: #fff; }
 .hero-k { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.65); }
+.hero-main { display: flex; align-items: center; gap: 18px; }
+.hero-main .grow { min-width: 0; }
+.hero-ring { width: 124px; height: 124px; flex: none; position: relative; }
+.hero-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.hero-ring .trk { fill: rgba(255,255,255,.06); stroke: rgba(255,255,255,.14); stroke-width: 10; }
+.hero-ring .arc { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1.2s var(--smooth); }
+.hero-ring .s1 { stop-color: #d1fae5; } .hero-ring .s2 { stop-color: #34d399; }
+.hero-ring.u-mid .s1 { stop-color: #fff1c2; } .hero-ring.u-mid .s2 { stop-color: #fbbf24; }
+.hero-ring.u-high .s1 { stop-color: #ffd0d9; } .hero-ring.u-high .s2 { stop-color: #ff4d6d; }
+.hero-ring svg { filter: drop-shadow(0 0 10px rgba(52, 211, 153, .45)); }
+.hero-ring.u-mid svg { filter: drop-shadow(0 0 10px rgba(251, 191, 36, .5)); }
+.hero-ring.u-high svg { filter: drop-shadow(0 0 12px rgba(255, 77, 109, .6)); animation: ring-pulse 2s ease-in-out infinite; }
+@keyframes ring-pulse { 50% { filter: drop-shadow(0 0 20px rgba(255, 77, 109, .85)); } }
+.hero-ring-in { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+.hero-ring-in b { font-size: 40px; font-weight: 800; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.hero-ring-in span { font-size: 13px; font-weight: 750; color: rgba(255,255,255,.75); margin-top: 2px; }
+.hero-ring-in em { font-style: normal; font-size: 11px; font-weight: 700; color: rgba(255,255,255,.6); margin-top: 5px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.12); }
+.hero-main .hero-title { margin-top: 6px; -webkit-line-clamp: 3; }
+.hero-when { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 750; padding: 5px 10px; border-radius: 10px; background: rgba(255,255,255,.12); }
 .hero-time { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 2px; }
 .hero-time b { font-size: 56px; line-height: 1; font-weight: 800; letter-spacing: -.05em; }
 .hero-time span { font-size: 16px; font-weight: 700; color: rgba(255,255,255,.72); margin-right: 10px; }

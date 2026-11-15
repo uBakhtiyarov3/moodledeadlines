@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
+import re
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from pathlib import Path
 
 from aiogram import Bot, Dispatcher
@@ -11,7 +13,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import admin as admin_api
@@ -93,6 +95,34 @@ async def health():
 @app.get("/")
 async def root():
     return RedirectResponse("/app/")
+
+
+ASSET_RE = re.compile(r'((?:src|href)="(?:/shared/[\w.-]+|[\w.-]+)\.(?:js|css))"')
+
+
+@lru_cache
+def _page(folder: str) -> str:
+    """index.html with ?v=<version> on our scripts and styles, so a release never mixes old and new files."""
+    return ASSET_RE.sub(rf'\1?v={VERSION}"', (WEB / folder / "index.html").read_text(encoding="utf-8"))
+
+
+@app.get("/app/", include_in_schema=False)
+async def student_page():
+    return HTMLResponse(_page("student"), headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/admin/", include_in_schema=False)
+async def admin_page():
+    return HTMLResponse(_page("admin"), headers={"Cache-Control": "no-cache"})
+
+
+@app.middleware("http")
+async def revalidate_static(request, call_next):
+    """Telegram's WebView caches hard: make it re-check our files (a cheap 304 when unchanged)."""
+    response = await call_next(request)
+    if request.url.path.startswith(("/app", "/admin", "/shared")) and "cache-control" not in response.headers:
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 app.mount("/shared", StaticFiles(directory=WEB / "shared"), name="shared")

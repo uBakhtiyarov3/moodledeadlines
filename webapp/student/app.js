@@ -72,26 +72,46 @@
     }
     const next = up[0];
     const ms = new Date(next.due_at) - now;
-    const span = 72 * 3600e3;
-    const frac = Math.max(0.04, Math.min(1, ms / span));
+    // the ring shows how much of the current window is left: a day, three days or a week
+    const span = ms < 24 * 3600e3 ? 24 * 3600e3 : ms < 72 * 3600e3 ? 72 * 3600e3 : 7 * 24 * 3600e3;
+    const frac = Math.max(0.03, Math.min(1, ms / span));
+    const R = 50, C = 2 * Math.PI * R, u = urgency(ms);
     const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
     const todayN = up.filter((d) => new Date(d.due_at) <= endOfDay).length;
     const weekN = up.filter((d) => new Date(d.due_at) - now < 7 * 864e5).length;
     const parts = leftParts(ms).slice(0, 2);
+    const [big, small] = parts;
     hero.innerHTML = `
-      <div class="hero-k">${t("next_deadline")}</div>
-      <div class="hero-time">${parts.map(([v, u]) => `<b>${esc(v)}</b><span>${esc(u)}</span>`).join("")}</div>
-      <div class="hero-title">${esc(next.title)}</div>
-      <div class="hero-course">${esc(next.course || "")} · ${dayLabel(new Date(next.due_at))}, ${fmtTime(new Date(next.due_at))}</div>
-      <div class="hero-progress ${urgency(ms)}"><i style="width:${Math.round((1 - frac) * 100)}%"></i></div>
+      <div class="hero-main">
+        <div class="hero-ring ${u}">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <defs><linearGradient id="hero-arc" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" class="s1"/><stop offset="1" class="s2"/></linearGradient></defs>
+            <circle class="trk" cx="60" cy="60" r="${R}"/>
+            <circle class="arc" cx="60" cy="60" r="${R}" stroke="url(#hero-arc)"
+              stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - frac)}" data-off="${C * (1 - frac)}"/>
+          </svg>
+          <div class="hero-ring-in"><b>${esc(big[0])}</b><span>${esc(big[1])}</span>${small ? `<em>${esc(small[0])} ${esc(small[1])}</em>` : ""}</div>
+        </div>
+        <div class="grow">
+          <div class="hero-k">${t("next_deadline")}</div>
+          <div class="hero-title">${esc(next.title)}</div>
+          <div class="hero-course">${esc(next.course || "")}</div>
+          <div class="hero-when">🗓 ${dayLabel(new Date(next.due_at))}, ${fmtTime(new Date(next.due_at))}</div>
+        </div>
+      </div>
       <div class="hero-stats">
         ${todayN ? `<span class="hot">${t("n_today", { n: todayN })}</span>` : ""}
         <span>${t("n_week", { n: weekN })}</span>
         <span>${t("n_upcoming", { n: up.length })}</span>
       </div>`;
     hero.onclick = () => openDetail(next);
-    if (quiet) $(".hero-progress i", hero).style.animation = "none";
-    else $$(".hero-time b", hero).forEach((el) => UW.countUp(el, 600));
+    if (!quiet) {  // the arc draws itself, the number counts up
+      const arc = $(".arc", hero);
+      arc.style.transition = "none"; arc.setAttribute("stroke-dashoffset", C);
+      requestAnimationFrame(() => requestAnimationFrame(() => { arc.style.transition = ""; arc.setAttribute("stroke-dashoffset", arc.dataset.off); }));
+      if (UW.countUp) UW.countUp($(".hero-ring-in b", hero), 700);
+    }
   }
 
   function renderList(quiet) {
@@ -152,7 +172,7 @@
       $("#toggle-done", sheet).onclick = async () => {
         try {
           await api(`/api/deadlines/${d.id}/done`, { body: { done: !d.completed } });
-          if (!d.completed) UW.confetti();
+          if (!d.completed && UW.confetti) UW.confetti();
           toast(t("marked"), "success"); closeSheet(); loadDeadlines();
         } catch (e) { toast(errText(e), "error"); }
       };
@@ -461,7 +481,7 @@
     try {
       grades = await api("/api/grades" + (refresh ? "?refresh=true" : ""));
       renderGrades();
-      $$(".course-donut b, .k-val", list).forEach((el) => UW.countUp(el));
+      if (UW.countUp) $$(".course-donut b, .k-val", list).forEach((el) => UW.countUp(el));
       if (refresh) toast(t("sync_ok"), "success");
     } catch (e) { list.innerHTML = ""; toast(errText(e), "error"); }
     $("#btn-grades").style.animation = "";

@@ -368,5 +368,18 @@ async def test_version_everywhere(client):
 
     assert (await client.get("/healthz")).json() == {"ok": True, "version": VERSION}
     me = (await client.get("/api/me", headers=auth(330, lang="ru"))).json()
-    assert me["version"] == VERSION and me["changes"][0].startswith("🎨 Полностью новый дизайн")
+    assert me["version"] == VERSION and me["changes"][0].startswith("⭕ Кольцевой таймер")
     assert (await client.get("/api/admin/stats", headers=auth(1, "Boss"))).json()["version"] == VERSION
+
+
+
+async def test_assets_are_versioned(client):
+    """A release must never mix cached old scripts with new ones."""
+    from app.version import VERSION
+
+    for path in ("/app/", "/admin/"):
+        r = await client.get(path)
+        assert r.headers["cache-control"] == "no-cache"
+        assert f'src="/shared/core.js?v={VERSION}"' in r.text and f'src="app.js?v={VERSION}"' in r.text
+        assert 'src="https://telegram.org/js/telegram-web-app.js"' in r.text
+    assert (await client.get(f"/shared/core.js?v={VERSION}")).headers["cache-control"] == "no-cache"
