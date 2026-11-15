@@ -1,19 +1,26 @@
 #!/bin/sh
-# Pull new commits of the deployed branch and rebuild the bot when there are any.
-# Runs from cron every 5 minutes (see enable-auto-update.sh); safe to run by hand too.
-# If the build fails, the running container is left untouched.
+# Bring the bot up to date: pull the deployed branch and rebuild whenever the running build is not
+# the checked-out commit (also after a manual `git pull`). Runs from cron every 5 minutes (see
+# enable-auto-update.sh); safe to run by hand. A failed build leaves the running container untouched.
 set -eu
 cd "$(dirname "$0")/.."
 
-exec 9>/tmp/uwed-update.lock
-flock -n 9 || exit 0  # a previous update is still building
+exec 9>"$HOME/.uwed-update.lock"
+if ! flock -n 9; then
+  echo "$(date '+%F %T') another update is still running"
+  exit 0
+fi
 
 git fetch -q origin
-old=$(git rev-parse HEAD)
-new=$(git rev-parse '@{u}')
-[ "$old" = "$new" ] && [ "${1:-}" != "--force" ] && exit 0
-
 git merge -q --ff-only '@{u}'
+head=$(git rev-parse HEAD)
+built=$(cat .deployed 2>/dev/null || true)
+if [ "$head" = "$built" ] && [ "${1:-}" != "--force" ]; then
+  exit 0  # the running bot is already this commit
+fi
+
+echo "$(date '+%F %T') building $(git rev-parse --short HEAD)…"
 sudo docker compose up -d --build
+echo "$head" > .deployed
 sudo docker image prune -f >/dev/null  # the VM disk is small; drop old builds
-echo "$(date '+%F %T') updated $(git rev-parse --short "$old") -> $(git rev-parse --short "$new")"
+echo "$(date '+%F %T') running $(git log -1 --format='%h %s')"
