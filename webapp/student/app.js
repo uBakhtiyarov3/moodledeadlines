@@ -44,6 +44,7 @@
     const tab = page === "connect" ? "deadlines" : page;
     $$("#dock button").forEach((b) => b.classList.toggle("active", b.dataset.page === tab));
     if (page === "ai") loadChat();
+    if (page === "grades") loadGrades();
     if (page === "support") openSupport(); else stopSupport();
     window.scrollTo({ top: 0 });
   }
@@ -433,12 +434,93 @@
   function renderCourses() {
     $("#courses-block").classList.toggle("hidden", !courses.length);
     $("#courses").innerHTML = courses.map((c) => `
-      <div class="item"><div class="icon">🎓</div><div class="grow title ellipsis">${esc(c)}</div>
+      <div class="item"><div class="icon">🎓</div><div class="grow title" style="overflow-wrap:anywhere">${esc(c)}</div>
       <label class="switch"><input type="checkbox" data-course="${esc(c)}" ${(me.muted_courses || []).includes(c) ? "" : "checked"}/><span></span></label></div>`).join("");
     $$("#courses input").forEach((inp) => (inp.onchange = () => {
       save({ muted_courses: $$("#courses input").filter((x) => !x.checked).map((x) => x.dataset.course) });
     }));
   }
+  // ---------- grades (Moodle Pro) ----------
+  let grades = null;
+  const gradeText = (g) => (g && g.grade ? g.grade + (g.max != null && !String(g.grade).includes("%") ? ` / ${+g.max}` : "") : "—");
+  async function loadGrades(refresh) {
+    const list = $("#grades-list");
+    if (!grades || refresh) list.innerHTML = '<div class="glass card center muted">…</div>';
+    try {
+      grades = await api("/api/grades" + (refresh ? "?refresh=true" : ""));
+      renderGrades();
+      if (refresh) toast(t("sync_ok"), "success");
+    } catch (e) { list.innerHTML = ""; toast(errText(e), "error"); }
+  }
+  function renderGrades() {
+    const list = $("#grades-list");
+    $("#grades-sub").textContent = grades.connected ? t("grades_sub", { n: grades.courses.length }) : "";
+    $("#btn-grades").classList.toggle("hidden", !grades.connected);
+    const hb = $("#grades-hidden");
+    hb.classList.toggle("hidden", !grades.hidden.length);
+    hb.textContent = t("hidden_courses", { n: grades.hidden.length }) + " ›";
+    if (!grades.connected) {
+      list.innerHTML = `<div class="glass empty"><div class="art">🎓</div>
+        <div style="font-weight:700;margin-bottom:6px">${t("grades_connect_t")}</div>
+        <div class="muted small" style="margin-bottom:14px">${t("grades_connect_d")}</div>
+        <button class="btn" id="grades-pro">${t("connect_btn")}</button></div>`;
+      $("#grades-pro").onclick = openPro;
+      return;
+    }
+    if (!grades.courses.length) {
+      list.innerHTML = `<div class="glass empty"><div class="art">📭</div><div>${t("grades_empty")}</div></div>`;
+      return;
+    }
+    list.innerHTML = grades.courses.map((c, i) => {
+      const graded = c.items.filter((x) => x.grade);
+      return `<div class="glass course">
+        <div class="course-head" data-open="${i}" style="cursor:pointer">
+          <div class="grow"><div class="course-name">${esc(c.fullname)}</div>
+            <div class="meta small muted">${t("graded_n", { n: graded.length, m: c.items.length })}</div></div>
+          <div class="course-total">${c.total && c.total.grade ? esc(c.total.grade) : "—"}<small>${t("course_total")}</small></div>
+        </div>
+        ${c.total && c.total.percent != null ? `<div class="bar"><i style="width:${Math.max(0, Math.min(100, c.total.percent))}%"></i></div>` : ""}
+        <div class="course-items hidden" id="ci-${i}">
+          ${c.items.map((g) => `<div class="grade-row">
+            <div class="grade-line"><div class="grow">${esc(g.name)}</div><div class="grade-val">${esc(gradeText(g))}</div></div>
+            ${g.percent != null ? `<div class="bar"><i style="width:${Math.max(0, Math.min(100, g.percent))}%"></i></div>` : ""}
+            ${g.feedback ? `<div class="grade-fb">${esc(g.feedback)}</div>` : ""}
+            ${g.url ? `<a class="small" href="${esc(g.url)}" data-link>Moodle ↗</a>` : ""}</div>`).join("") || `<div class="muted small">${t("grades_none")}</div>`}
+          <div class="course-actions">
+            <button class="btn sm" data-ask="${i}">🤖 ${t("grades_ask")}</button>
+            <button class="btn sm ghost" data-hide="${i}">${I.eyeoff} ${t("hide_course")}</button>
+          </div>
+        </div></div>`;
+    }).join("");
+    $$("[data-open]", list).forEach((h) => (h.onclick = () => { $("#ci-" + h.dataset.open).classList.toggle("hidden"); haptic("light"); }));
+    $$("[data-link]", list).forEach((a) => (a.onclick = (ev) => { ev.preventDefault(); openLink(a.href); }));
+    $$("[data-ask]", list).forEach((b) => (b.onclick = () => {
+      const c = grades.courses[+b.dataset.ask];
+      show("ai"); $("#ai-input").value = t("grades_ask_q", { course: c.fullname }); send();
+    }));
+    $$("[data-hide]", list).forEach((b) => (b.onclick = async () => {
+      const c = grades.courses[+b.dataset.hide];
+      if (!(await confirmDialog(t("hide_q", { course: c.fullname })))) return;
+      try {
+        grades = await api("/api/grades/hidden", { body: { course_id: c.id, hidden: true, fullname: c.fullname, shortname: c.shortname } });
+        renderGrades(); toast(t("hidden_ok"), "success"); items = []; if (me.linked) loadDeadlines();
+      } catch (e) { toast(errText(e), "error"); }
+    }));
+  }
+  $("#btn-grades").innerHTML = I.refresh;
+  $("#btn-grades").onclick = () => loadGrades(true);
+  $("#grades-hidden").onclick = () => openSheet(`<h2 style="margin-top:0">${t("hidden_title")}</h2>
+    <p class="muted small">${t("hidden_d")}</p>
+    <div class="glass list">${grades.hidden.map((h) => `<div class="item"><div class="grow" style="overflow-wrap:anywhere">${esc(h.fullname || "#" + h.id)}</div>
+      <button class="btn sm ghost" data-unhide="${h.id}">${t("unhide")}</button></div>`).join("")}</div>`, (s) => {
+    $$("[data-unhide]", s).forEach((b) => (b.onclick = async () => {
+      try {
+        grades = await api("/api/grades/hidden", { body: { course_id: +b.dataset.unhide, hidden: false } });
+        closeSheet(); renderGrades(); toast(t("saved"), "success"); if (me.linked) loadDeadlines();
+      } catch (e) { toast(errText(e), "error"); }
+    }));
+  });
+
   // ---------- profile & AI memory ----------
   let prof = null;
   async function loadProfile() {
@@ -590,7 +672,7 @@
     UW.setLang(me.lang);
     renderSync(); renderSettings();
     const start = UW.startPage();
-    show(["ai", "settings", "connect", "support", "deadlines"].includes(start) ? start : "deadlines");
+    show(["ai", "settings", "connect", "support", "deadlines", "grades"].includes(start) ? start : "deadlines");
     setSupBadge(me.support_unread || 0);
     loadProfile();
     if (me.linked) loadDeadlines();

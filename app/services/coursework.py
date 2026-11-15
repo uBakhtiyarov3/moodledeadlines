@@ -19,7 +19,7 @@ from sqlalchemy import select
 
 from app.config import get_settings
 from app.db import Session
-from app.models import GradeSeen, User
+from app.models import GradeSeen, HiddenCourse, User
 from app.moodle import ws
 from app.security import decrypt
 from app.services import files
@@ -145,6 +145,85 @@ async def review_bundle(user: User, assignment_id: int) -> dict:
     return bundle
 
 
+# ---------------------------------------------------------------- grades page (Mini App)
+
+_overview_cache: dict[int, tuple[float, list[dict]]] = {}
+OVERVIEW_TTL = 600  # seconds; Moodle is asked at most every 10 minutes per student unless refreshed
+
+
+def _num(value) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+async def overview(user: User, refresh: bool = False) -> list[dict]:
+    """Every enrolled course with its full name, course total and graded items."""
+    import time
+
+    cached = _overview_cache.get(user.id)
+    if cached and not refresh and time.monotonic() - cached[0] < OVERVIEW_TTL:
+        return cached[1]
+    token = token_of(user)
+    userid = user.moodle_userid or await ws.site_userid_safe(token)
+    base = get_settings().moodle_base.rstrip("/")
+    courses = await ws.call(token, "core_enrol_get_users_courses", userid=userid)
+    out = []
+    for c in courses if isinstance(courses, list) else []:
+        entry = {"id": c["id"], "fullname": plain(c.get("fullname"), 255) or c.get("shortname") or "—",
+                 "shortname": c.get("shortname") or "", "url": f"{base}/grade/report/user/index.php?id={c['id']}",
+                 "total": None, "items": []}
+        try:
+            data = await ws.call(token, "gradereport_user_get_grade_items", courseid=c["id"], userid=userid)
+        except ws.MoodleAuthError:
+            data = {}
+        for ug in data.get("usergrades", []) if isinstance(data, dict) else []:
+            for gi in ug.get("gradeitems", []):
+                raw, gmax, gmin = _num(gi.get("graderaw")), _num(gi.get("grademax")), _num(gi.get("grademin")) or 0
+                pct = round((raw - gmin) / (gmax - gmin) * 100) if raw is not None and gmax and gmax > gmin else None
+                shown = plain(gi.get("gradeformatted"), 40)
+                row = {"name": gi.get("itemname") or "", "grade": shown if shown and shown != "-" else None,
+                       "max": gmax, "percent": pct, "feedback": plain(gi.get("feedback"), 600) or None,
+                       "graded_at": _local(gi.get("gradedategraded"))}
+                if gi.get("itemtype") == "course":
+                    entry["total"] = {k: row[k] for k in ("grade", "max", "percent")}
+                elif gi.get("itemtype") != "category":
+                    if gi.get("cmid") and gi.get("itemmodule"):
+                        row["url"] = f"{base}/mod/{gi['itemmodule']}/view.php?id={gi['cmid']}"
+                    entry["items"].append(row)
+        out.append(entry)
+    _overview_cache[user.id] = (time.monotonic(), out)
+    return out
+
+
+async def hidden(user_id: int) -> list[HiddenCourse]:
+    async with Session() as s:
+        return (await s.execute(select(HiddenCourse).where(HiddenCourse.user_id == user_id))).scalars().all()
+
+
+async def hidden_names(user_id: int) -> set[str]:
+    return {n for h in await hidden(user_id) for n in (h.fullname, h.shortname) if n}
+
+
+async def set_hidden(user: User, course_id: int, hide: bool, fullname: str = "", shortname: str = "") -> None:
+    """Hide/show a course: grades page, deadlines list, reminders and grade alerts follow."""
+    async with Session() as s:
+        row = (await s.execute(select(HiddenCourse).where(HiddenCourse.user_id == user.id,
+                                                          HiddenCourse.course_id == course_id))).scalar_one_or_none()
+        u = await s.get(User, user.id)
+        names = {n for n in ((row.fullname, row.shortname) if row else (fullname, shortname)) if n}
+        muted = [m for m in (u.muted_courses or []) if m not in names]
+        if hide:
+            if not row:
+                s.add(HiddenCourse(user_id=user.id, course_id=course_id, fullname=fullname[:255], shortname=shortname[:255]))
+            muted += sorted(names)
+        elif row:
+            await s.delete(row)
+        u.muted_courses = muted[:100]
+        await s.commit()
+
+
 # ---------------------------------------------------------------- grade notifications
 
 async def _grade_items(token: str, userid: int) -> list[dict]:
@@ -179,7 +258,8 @@ async def check_user(bot: Bot, user: User) -> int:
     userid = user.moodle_userid or await ws.site_userid_safe(token)
     if not userid:
         return 0
-    items = await _grade_items(token, userid)
+    skip = {h.course_id for h in await hidden(user.id)}
+    items = [i for i in await _grade_items(token, userid) if int(i["key"].split(":")[0]) not in skip]
     async with Session() as s:
         seen = {g.item_key: g for g in (await s.execute(select(GradeSeen).where(GradeSeen.user_id == user.id))).scalars()}
         first_run = "*" not in seen

@@ -12,7 +12,7 @@ from app.i18n import LANGS
 from app.models import ChatMessage, Deadline, User
 from app.moodle import ws
 from app.moodle.ical import IcalUrlError
-from app.services import agent, ai, files, linking, profile, support, users
+from app.services import agent, ai, coursework, files, linking, profile, support, users
 from app.services import settings as rt
 from app.services.sync import sync_user
 from app.services.tg_html import markdown_to_tg
@@ -94,12 +94,14 @@ async def deadlines(scope: str = "upcoming", user: User = Depends(current_user))
         q = q.where(Deadline.completed.is_(True), Deadline.due_at > now - timedelta(days=30)).order_by(Deadline.due_at.desc())
     else:  # past
         q = q.where(Deadline.due_at <= now, Deadline.due_at > now - timedelta(days=30)).order_by(Deadline.due_at.desc())
+    hidden = await coursework.hidden_names(user.id)
     async with Session() as s:
         rows = (await s.execute(q.limit(100))).scalars().all()
         courses = sorted(
             {c for c in (await s.execute(select(Deadline.course).where(Deadline.user_id == user.id))).scalars() if c}
         )
-    return {"items": [deadline_out(d) for d in rows], "courses": courses}
+    return {"items": [deadline_out(d) for d in rows if d.course not in hidden],
+            "courses": [c for c in courses if c not in hidden]}
 
 
 class DoneIn(BaseModel):
@@ -303,3 +305,37 @@ async def forget(index: int | None = None, user: User = Depends(current_user)):
         memory.pop(index)
     p = await profile.update(user.id, memory=memory)
     return profile_out(user, p)
+
+
+# ---------------------------------------------------------------- grades (Moodle Pro)
+
+@router.get("/grades")
+async def grades(refresh: bool = False, user: User = Depends(current_user)):
+    fresh = await users.get(user.id)
+    hidden = await coursework.hidden(user.id)
+    out = {"connected": bool(fresh.ws_token_enc), "courses": [],
+           "hidden": [{"id": h.course_id, "fullname": h.fullname} for h in hidden]}
+    if not out["connected"]:
+        return out
+    try:
+        courses = await coursework.overview(fresh, refresh=refresh)
+    except ws.MoodleAuthError as e:
+        raise HTTPException(502, e.code) from e
+    except httpx.HTTPError as e:
+        raise HTTPException(502, "network") from e
+    skip = {h.course_id for h in hidden}
+    out["courses"] = [c for c in courses if c["id"] not in skip]
+    return out
+
+
+class HideIn(BaseModel):
+    course_id: int
+    hidden: bool = True
+    fullname: str = Field(default="", max_length=255)
+    shortname: str = Field(default="", max_length=255)
+
+
+@router.post("/grades/hidden")
+async def hide_course(body: HideIn, user: User = Depends(current_user)):
+    await coursework.set_hidden(user, body.course_id, body.hidden, body.fullname, body.shortname)
+    return await grades(user=user)

@@ -35,6 +35,16 @@
       <div class="stack" id="deadline-list" style="margin-top:14px"></div>
     </section>
 
+    <!-- ============ GRADES ============ -->
+    <section class="page" id="page-grades">
+      <header class="header">
+        <div class="grow"><h1 data-i18n="grades">Baholar</h1><div class="sub" id="grades-sub"></div></div>
+        <button class="icon-btn" id="btn-grades" aria-label="Refresh"></button>
+      </header>
+      <div class="stack" id="grades-list"></div>
+      <button class="center muted small hidden" id="grades-hidden" style="margin:18px auto 0;display:block;background:none;border:0;color:inherit;font:inherit;cursor:pointer"></button>
+    </section>
+
     <!-- ============ CONNECT ============ -->
     <section class="page" id="page-connect">
       <header class="header">
@@ -175,6 +185,7 @@
   <nav class="dock glass strong" id="dock">
     <button data-page="deadlines" class="active"><span data-icon="clock"></span><span data-i18n="tab_deadlines">Deadline</span></button>
     <button data-page="ai"><span data-icon="chat"></span><span data-i18n="tab_ai">AI</span></button>
+    <button data-page="grades"><span data-icon="award"></span><span data-i18n="tab_grades">Baholar</span></button>
     <button data-page="support"><span data-icon="headset"></span><span class="tab-badge hidden" id="sup-badge"></span><span>Admin</span></button>
     <button data-page="settings"><span data-icon="gear"></span><span data-i18n="tab_settings">Sozlamalar</span></button>
   </nav>

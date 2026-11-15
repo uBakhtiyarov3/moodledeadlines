@@ -268,3 +268,16 @@ class GradeSeen(Base):
     name: Mapped[str] = mapped_column(String(255), default="")
     fingerprint: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class HiddenCourse(Base):
+    """A Moodle course the student hid: off the grades page, its deadlines and reminders."""
+
+    __tablename__ = "hidden_courses"
+    __table_args__ = (UniqueConstraint("user_id", "course_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    course_id: Mapped[int] = mapped_column(Integer)
+    fullname: Mapped[str] = mapped_column(String(255), default="")
+    shortname: Mapped[str] = mapped_column(String(255), default="")

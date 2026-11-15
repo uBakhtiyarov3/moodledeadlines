@@ -361,3 +361,36 @@ async def test_new_grade_notification(moodle_student):
     buttons = bot.sent[-1].reply_markup.inline_keyboard[0]
     assert buttons[0].callback_data == "grade:9:3" and buttons[1].url.endswith("/mod/assign/view.php?id=50")
     assert await coursework.check_user(bot, user) == 0  # nothing new → silent
+
+
+async def test_grades_page_and_hiding_courses(client, moodle_student):  # noqa: F811
+    from app.models import Deadline
+
+    user, grade = moodle_student
+    h = auth(310)
+    # not connected → the page asks to connect
+    assert (await client.get("/api/grades", headers=auth(311))).json() == {"connected": False, "courses": [], "hidden": []}
+
+    grade["value"] = "85,00"
+    r = (await client.get("/api/grades?refresh=true", headers=h)).json()
+    course = r["courses"][0]
+    assert course["fullname"] == "Xalqaro munosabatlar" and course["id"] == 9
+    assert course["items"] == [{"name": "Esse: suv xavfsizligi", "grade": "85,00", "max": 100.0, "percent": 85,
+                                "feedback": "Manbalar kam.", "graded_at": None,
+                                "url": "https://moodle.uwed.uz/mod/assign/view.php?id=50"}]
+
+    async with Session() as s:
+        s.add(Deadline(user_id=310, uid="d1", title="Esse", course="Xalqaro munosabatlar",
+                       due_at=datetime.now(timezone.utc) + timedelta(days=2)))
+        await s.commit()
+    assert len((await client.get("/api/deadlines", headers=h)).json()["items"]) == 1
+
+    r = (await client.post("/api/grades/hidden", headers=h, json={"course_id": 9, "fullname": "Xalqaro munosabatlar", "shortname": "XM"})).json()
+    assert r["courses"] == [] and r["hidden"] == [{"id": 9, "fullname": "Xalqaro munosabatlar"}]
+    me = (await client.get("/api/me", headers=h)).json()
+    assert set(me["muted_courses"]) == {"Xalqaro munosabatlar", "XM"}  # no reminders either
+    assert (await client.get("/api/deadlines", headers=h)).json() == {"items": [], "courses": []}
+
+    r = (await client.post("/api/grades/hidden", headers=h, json={"course_id": 9, "hidden": False})).json()
+    assert r["hidden"] == [] and len(r["courses"]) == 1
+    assert (await client.get("/api/me", headers=h)).json()["muted_courses"] == []
