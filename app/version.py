@@ -1,18 +1,16 @@
 """The one place the UWED Pulse version lives. Bump it (and add to CHANGES) with every release."""
 
-VERSION = "3.4.0"
+VERSION = "3.4.1"
 RELEASED = "2026-11-15"
 
-# What's new, shown in the Mini App (tap the version): this release first, then the previous big one.
+# What's new, shown to students in the Mini App (tap the version), newest first.
+# Only what students can see or use — admin-only features don't belong here.
 CHANGES = {
     "uz": [
         "😊 AI xabaringizga vaziyatga qarab reaksiya qöyadi: ❤ 🔥 👍 🤔 🎉 va boşqalar",
-        "🕵️ Admin agenti talabalar AI bilan nima haqida gaplaşayotganini körib, xulosa qilib beradi",
-        "🛠 Admin uçun töliq boşqaruv: AI bazani özgartiradi (avval zaxira bilan) va serverda buyruq işlatadi",
         "🌐 AI internetdan qidiradi, havolalarni öqiydi va aniq hisob-kitob uçun kod işlatadi",
-        "🧠 Admin uçun: bot bazasidan istalgan statistika",
         "📛 Deadlinelar, eslatmalar va AI'da kurs kodi (xih_202627) örniga töliq kurs nomi",
-        "🎓 Baholarda faqat joriy öquv dasturi kurslari (Moodle 330-kategoriya)",
+        "🎓 Baholarda faqat hozirgi öquv yilingiz kurslari",
         "⭕ Eng yaqin deadline uçun aylana taymer",
         "🎨 Butunlay yangi dizayn: yangi şrift, toza kartalar, gradientli bosh ekran",
         "⏱ Bosh ekranda katta taymer, tez amallar va kurs belgili rangli kartalar",
@@ -32,12 +30,9 @@ CHANGES = {
     ],
     "ru": [
         "😊 ИИ ставит реакции на ваши сообщения по ситуации: ❤ 🔥 👍 🤔 🎉 и другие",
-        "🕵️ Агент админа видит, о чём студенты говорят с ИИ, и делает выводы",
-        "🛠 Полный контроль для админа: ИИ меняет базу (с резервной копией) и выполняет команды на сервере",
         "🌐 ИИ ищет в интернете, читает ссылки и запускает код для точных расчётов",
-        "🧠 Для админов: любая статистика из базы бота",
         "📛 Полные названия курсов вместо кодов (xih_202627) в дедлайнах, напоминаниях и ИИ",
-        "🎓 В оценках только курсы текущей программы (категория Moodle 330)",
+        "🎓 В оценках только курсы текущего учебного года",
         "⭕ Кольцевой таймер до ближайшего дедлайна",
         "🎨 Полностью новый дизайн: новый шрифт, чистые карточки, градиентный главный экран",
         "⏱ Большой таймер, быстрые действия и цветные карточки курсов на главной",
@@ -57,12 +52,9 @@ CHANGES = {
     ],
     "en": [
         "😊 The AI reacts to your messages when it fits: ❤ 🔥 👍 🤔 🎉 and more",
-        "🕵️ The admin agent sees what students discuss with the AI and sums it up",
-        "🛠 Full control for admins: the AI edits the database (after a backup) and runs commands on the server",
         "🌐 The AI searches the web, reads links and runs code for exact calculations",
-        "🧠 For admins: any statistics from the bot database",
         "📛 Full course names instead of codes (xih_202627) in deadlines, reminders and the AI",
-        "🎓 Grades show only the current programme's courses (Moodle category 330)",
+        "🎓 Grades show only this study year's courses",
         "⭕ A ring countdown to the next deadline",
         "🎨 A completely new design: new typeface, clean cards, gradient home screen",
         "⏱ Big countdown, quick actions and colour-coded course cards on the home screen",

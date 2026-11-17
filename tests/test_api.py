@@ -370,3 +370,12 @@ async def test_assets_are_versioned(client):
         assert f'src="/shared/core.js?v={VERSION}"' in r.text and f'src="app.js?v={VERSION}"' in r.text
         assert 'src="https://telegram.org/js/telegram-web-app.js"' in r.text
     assert (await client.get(f"/shared/core.js?v={VERSION}")).headers["cache-control"] == "no-cache"
+
+
+
+def test_whats_new_is_for_students_only():
+    from app.version import CHANGES
+
+    for lang, items in CHANGES.items():
+        for item in items:
+            assert not any(w in item for w in ("Admin uçun", "admin agenti", "Для админ", "Агент админа", "For admins", "admin agent")), (lang, item)
