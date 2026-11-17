@@ -595,3 +595,47 @@ async def test_agent_can_show_what_it_sent(client, monkeypatch):  # noqa: F811
     assert log[1]["to"] == "380" and log[1]["to_name"] == "Asadbek" and log[1]["text"] == "Ertaga dars 9:00 da\nButtons: OK"
     assert [e["text"] for e in (await agent.call(ctx, "sent_messages", {"user_id": 380}))["sent"]] == [
         "Ertaga dars 9:00 da\nButtons: OK", "Moodle Pro'ni ulang"]
+
+
+async def test_agent_sends_voice_and_personal_messages(client, monkeypatch):  # noqa: F811
+    import asyncio
+
+    from aiogram.methods import SendRichMessage, SendVoice
+
+    from app.services import outreach
+
+    async def fake_voice(text):
+        return b"OggS" + text.encode()
+
+    async def fake_write(user, instruction):
+        return f"Salom {user.first_name}! {instruction}"
+
+    monkeypatch.setattr(outreach, "voice_of", fake_voice)
+    monkeypatch.setattr(outreach, "write_for", fake_write)
+    for uid, name in ((1, "Boss"), (391, "Ali"), (392, "Vali"), (393, "Gani"), (394, "Sami"), (395, "Lola")):
+        await client.get("/api/me", headers=auth(uid, name=name))
+    async with Session() as s:
+        admin = await s.get(User, 1)
+    bot = FakeBot()
+    ctx = agent.Ctx(user=admin, bot=bot)
+
+    r = await agent.call(ctx, "send_voice", {"user_ids": [391], "text": "Yangi funksiyalar çiqdi!"})
+    assert r["results"] == {"391": "sent"}
+    voice = [m for m in bot.sent if isinstance(m, SendVoice)][0]
+    assert voice.chat_id == 391 and voice.voice.data == b"OggS" + "Yangi funksiyalar çiqdi!".encode()
+
+    bot.sent.clear()
+    r = await agent.call(ctx, "personalised_messages", {"instruction": "Bot yangilandi.", "user_ids": [391, 392], "as_voice": True})
+    assert r["sent"] == 2 and r["failed"] == 0
+    texts = sorted(m.rich_message.markdown for m in bot.sent if isinstance(m, SendRichMessage))
+    assert texts == ["Salom Ali! Bot yangilandi.", "Salom Vali! Bot yangilandi."]
+    assert len([m for m in bot.sent if isinstance(m, SendVoice)]) == 2
+
+    bot.sent.clear()  # many people: runs in the background, then reports to the admin
+    r = await agent.call(ctx, "personalised_messages", {"instruction": "Imtihon haftasi boşlandi.", "as_voice": False})
+    assert r["ok"] and r["started_for"] >= 5
+    await asyncio.gather(*list(outreach._jobs))
+    report = [m for m in bot.sent if isinstance(m, SendRichMessage) and m.chat_id == 1 and "Şaxsiy xabarlar" in m.rich_message.markdown]
+    assert report and "**" in report[0].rich_message.markdown
+    log = (await agent.call(ctx, "sent_messages", {"user_id": 392}))["sent"]
+    assert log[0]["text"] == "Salom Vali! Imtihon haftasi boşlandi." and log[0]["via"] == "personalised text"

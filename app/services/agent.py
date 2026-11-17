@@ -582,6 +582,62 @@ async def list_broadcasts(ctx: Ctx):
     return {"broadcasts": await broadcasts()}
 
 
+@tool("send_voice",
+      "Send a voice message (spoken by the bot's voice) to one or more people: the text you give is read aloud. "
+      "Write the text in the listener's language, as it should sound. Optional short caption under it.",
+      {"user_ids": {"type": "array", "items": {"type": "integer"}, "description": "Telegram IDs"},
+       "text": S("what to say"), "caption": S("optional caption text")},
+      required=("user_ids", "text"), admin=True)
+async def send_voice(ctx: Ctx, user_ids: list, text: str, caption: str | None = None):
+    from app.services import outreach
+
+    if not ctx.bot:
+        return {"error": "the bot is not available here"}
+    results = {}
+    for uid in [int(u) for u in user_ids][:50]:
+        r = await outreach.send_voice(ctx.bot, uid, text, caption)
+        results[str(uid)] = "sent" if r.get("ok") else r.get("error")
+        if r.get("ok"):
+            await outbox.log(ctx.user.id, "send_voice", uid, text)
+    return {"results": results, "spoken_text": text}
+
+
+def _personal_summary(a: dict) -> str:
+    who = ", ".join(map(str, a.get("user_ids") or [])) or (", ".join(a.get("langs") or []) or "hamma")
+    kind = " + ".join(k for k, on in (("matn", a.get("as_text", True)), ("ovoz", a.get("as_voice"))) if on)
+    return f"🧑‍🤝‍🧑 **Şaxsiy xabarlar** ({who}; {kind}):\n\n> " + str(a.get("instruction", ""))[:800]
+
+
+@tool("personalised_messages",
+      "Send each person their OWN message written by you from an instruction (e.g. 'tell them about the new "
+      "features in a way that fits each one'): for every recipient the AI writes a personal message from their "
+      "name, language, studies and deadlines, then sends it as text and/or a voice message. For everyone, a "
+      "language or Moodle segment, or a list of people. Runs in the background; the admin gets a report.",
+      {"instruction": S("what the messages should say / achieve"),
+       "user_ids": {"type": "array", "items": {"type": "integer"}, "description": "only these people; empty = segment"},
+       "langs": {"type": "array", "items": {"type": "string", "enum": ["uz", "ru", "en"]}, "description": "empty = all languages"},
+       "only_moodle_linked": B("only people with Moodle connected"),
+       "as_text": B("send as a text message (default true)"), "as_voice": B("also/instead send as a voice message")},
+      required=("instruction",), admin=True, confirm=_personal_summary)
+async def personalised_messages(ctx: Ctx, instruction: str, user_ids=None, langs=None, only_moodle_linked: bool = False,
+                                as_text: bool = True, as_voice: bool = False):
+    from app.services import outreach
+
+    if not ctx.bot:
+        return {"error": "the bot is not available here"}
+    if not (as_text or as_voice):
+        as_text = True
+    people = await outreach.recipients(user_ids, {"langs": list(langs or []), "linked": True if only_moodle_linked else None})
+    if not people:
+        return {"error": "no recipients match"}
+    if len(people) <= 3:  # small: do it now and show the exact texts
+        r = await outreach.personalised(ctx.bot, ctx.user, instruction, people, bool(as_voice), bool(as_text))
+        return {**r, "note": "texts are in sent_messages"}
+    outreach.start_personalised(ctx.bot, ctx.user, instruction, people, bool(as_voice), bool(as_text))
+    return {"ok": True, "started_for": len(people),
+            "note": "running in the background (one AI message per person); the admin gets a report when done"}
+
+
 @tool("sent_messages",
       "Exactly what YOU (the agent) sent on the admins' orders — direct messages, replies, broadcasts and "
       "every Telegram send — with recipient, time, method and the full text. Use it whenever the admin asks "
