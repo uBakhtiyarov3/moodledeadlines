@@ -1,11 +1,12 @@
 """The one place the UWED Pulse version lives. Bump it (and add to CHANGES) with every release."""
 
-VERSION = "3.1.0"
+VERSION = "3.2.0"
 RELEASED = "2026-11-15"
 
 # What's new, shown in the Mini App (tap the version): this release first, then the previous big one.
 CHANGES = {
     "uz": [
+        "🛠 Admin uçun töliq boşqaruv: AI bazani özgartiradi (avval zaxira bilan) va serverda buyruq işlatadi",
         "🌐 AI internetdan qidiradi, havolalarni öqiydi va aniq hisob-kitob uçun kod işlatadi",
         "🧠 Admin uçun: bot bazasidan istalgan statistika va Claude yoki Gemini dvigatelini tanlaş",
         "📛 Deadlinelar, eslatmalar va AI'da kurs kodi (xih_202627) örniga töliq kurs nomi",
@@ -28,6 +29,7 @@ CHANGES = {
         "🔤 Yangi özbek lotin alifbosi",
     ],
     "ru": [
+        "🛠 Полный контроль для админа: ИИ меняет базу (с резервной копией) и выполняет команды на сервере",
         "🌐 ИИ ищет в интернете, читает ссылки и запускает код для точных расчётов",
         "🧠 Для админов: любая статистика из базы бота и выбор движка — Claude или Gemini",
         "📛 Полные названия курсов вместо кодов (xih_202627) в дедлайнах, напоминаниях и ИИ",
@@ -50,6 +52,7 @@ CHANGES = {
         "🔤 Новый узбекский латинский алфавит",
     ],
     "en": [
+        "🛠 Full control for admins: the AI edits the database (after a backup) and runs commands on the server",
         "🌐 The AI searches the web, reads links and runs code for exact calculations",
         "🧠 For admins: any statistics from the bot database, and a choice of Claude or Gemini as the engine",
         "📛 Full course names instead of codes (xih_202627) in deadlines, reminders and the AI",

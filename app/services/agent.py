@@ -31,6 +31,7 @@ class Ctx:
     pending: list[dict] = field(default_factory=list)  # actions shown with ✅/❌ buttons
     buttons: list[dict] = field(default_factory=list)  # inline buttons for the reply (reply_buttons)
     done: list[str] = field(default_factory=list)  # tool names that ran
+    tainted: bool = False  # outside text (web pages, students' messages) has entered this turn
 
 
 @dataclass
@@ -43,6 +44,10 @@ class Tool:
     admin: bool = False
     readonly: bool = False  # also allowed in scheduled runs
     confirm: Callable[[dict], str | None] | None = None  # → summary when a ✅ is needed
+    # → summary for a ✅ only when outside text has entered the turn (a web page or a student's message
+    # could carry instructions aimed at the agent); otherwise the admin's order just runs
+    guard: Callable[[dict], str] | None = None
+    taints: bool = False  # its result is outside text
 
     def declaration(self) -> dict:
         d = {"name": self.name, "description": self.description}
@@ -89,7 +94,10 @@ async def call(ctx: Ctx, name: str, args: dict) -> dict:
     if t is None or (t.admin and not users.is_admin(ctx.user)) or (ctx.scheduled and not t.readonly):
         return {"error": f"tool {name} is not available here"}
     args = dict(args or {})
-    if t.confirm and rt.get("agent_confirm") and (summary := t.confirm(args)):
+    summary = t.confirm(args) if t.confirm and rt.get("agent_confirm") else None
+    if not summary and t.guard and ctx.tainted:
+        summary = t.guard(args)
+    if summary:
         async with Session() as s:
             row = PendingAction(user_id=ctx.user.id, tool=name, args=args, summary=summary)
             s.add(row)
@@ -104,6 +112,7 @@ async def _run(ctx: Ctx, t: Tool, args: dict) -> dict:
     try:
         result = await t.handler(ctx, **args)
         ctx.done.append(t.name)
+        ctx.tainted = ctx.tainted or t.taints
         return result
     except TypeError as e:  # wrong / missing arguments from the model
         return {"error": f"bad arguments: {e}"}
@@ -278,7 +287,7 @@ async def moodle_assignments(ctx: Ctx, query: str = ""):
       "Open one Moodle assignment for review: the brief and its files, the grading criteria (rubric or "
       "marking guide when visible), the student's submitted files/text as text, and the teacher's grade "
       "and feedback if graded. Use it when the student wants their submission checked or a grade explained.",
-      {"assignment_id": I("from moodle_assignments")}, required=("assignment_id",), readonly=True)
+      {"assignment_id": I("from moodle_assignments")}, required=("assignment_id",), readonly=True, taints=True)
 async def get_assignment_for_review(ctx: Ctx, assignment_id: int):
     from app.services import coursework
 
@@ -306,7 +315,7 @@ async def check_new_grades(ctx: Ctx):
 @tool("web_search",
       "Search the internet (Google) for current or outside information: news, facts, documentation, "
       "prices, events, anything not in the knowledge base. Returns an answer with sources.",
-      {"query": S("what to find, as a full question")}, required=("query",), readonly=True)
+      {"query": S("what to find, as a full question")}, required=("query",), readonly=True, taints=True)
 async def web_search(ctx: Ctx, query: str):
     from app.services import ai
 
@@ -316,7 +325,7 @@ async def web_search(ctx: Ctx, query: str):
 @tool("fetch_url",
       "Open a public web page or file (http/https) and read its text: articles, PDFs, Word documents, "
       "JSON, plain text.",
-      {"url": S("full http(s) URL")}, required=("url",), readonly=True)
+      {"url": S("full http(s) URL")}, required=("url",), readonly=True, taints=True)
 async def fetch_url(ctx: Ctx, url: str):
     from app.services import webfetch
 
@@ -344,7 +353,11 @@ async def compute(ctx: Ctx, task: str):
 async def query_database(ctx: Ctx, sql: str):
     from app.services import dbquery
 
-    return await dbquery.run(sql)
+    r = await dbquery.run(sql)
+    # long text cells are people's own words (chats, profiles): treat them as outside text
+    if any(isinstance(v, str) and len(v) > 60 for row in r.get("rows", []) for v in row):
+        ctx.tainted = True
+    return r
 
 
 # ================================================================ Telegram UI (everyone)
@@ -444,7 +457,7 @@ async def find_users(ctx: Ctx, query: str = "", filter: str = "all", limit: int 
 
 
 @tool("user_info", "Everything about one user: settings, profile, upcoming deadlines.",
-      {"user_id": I("Telegram ID")}, required=("user_id",), admin=True, readonly=True)
+      {"user_id": I("Telegram ID")}, required=("user_id",), admin=True, readonly=True, taints=True)
 async def user_info(ctx: Ctx, user_id: int):
     from app.api.admin import user_detail
 
@@ -530,7 +543,7 @@ async def list_broadcasts(ctx: Ctx):
     return {"broadcasts": await broadcasts()}
 
 
-@tool("support_inbox", "Students' chats with the admins (newest first, with unread counts).", admin=True, readonly=True)
+@tool("support_inbox", "Students' chats with the admins (newest first, with unread counts).", admin=True, readonly=True, taints=True)
 async def support_inbox(ctx: Ctx):
     from app.services import support
 
@@ -538,7 +551,7 @@ async def support_inbox(ctx: Ctx):
 
 
 @tool("read_support_chat", "The whole admin chat with one student.",
-      {"user_id": I("student's Telegram ID")}, required=("user_id",), admin=True, readonly=True)
+      {"user_id": I("student's Telegram ID")}, required=("user_id",), admin=True, readonly=True, taints=True)
 async def read_support_chat(ctx: Ctx, user_id: int):
     from app.services import support
 
@@ -565,7 +578,7 @@ async def kb_list(ctx: Ctx):
     return {"docs": [{k: d[k] for k in ("id", "title", "enabled", "chars")} for d in await rows()]}
 
 
-@tool("kb_get", "Read one knowledge-base document.", {"doc_id": I("id")}, required=("doc_id",), admin=True, readonly=True)
+@tool("kb_get", "Read one knowledge-base document.", {"doc_id": I("id")}, required=("doc_id",), admin=True, readonly=True, taints=True)
 async def kb_get(ctx: Ctx, doc_id: int):
     from app.api.admin import kb_list as rows
 
@@ -642,3 +655,38 @@ async def update_bot_settings(ctx: Ctx, **values):
 
     return {"ok": True, "settings": await put_settings({k: v for k, v in values.items() if v is not None})}
 
+
+# ================================================================ full control of the server (admins)
+
+def _shell_summary(a: dict) -> str:
+    return "🖥 **Server buyrug\'i**\n```\n" + str(a.get("command", ""))[:1500] + "\n```"
+
+
+@tool("run_shell",
+      "Run any shell command inside the bot's server container (Linux, as the bot's user, working directory "
+      "/srv = the app: app/, webapp/, data/bot.db, Python 3.13 with all packages). Use it for anything no "
+      "other tool covers: inspect files and logs, run Python scripts (python -c / python - <<EOF), process "
+      "data, export CSV files to data/, check the system. Changes to app files last "
+      "only until the next update; permanent code changes go through the developer. Output is cut at 20 000 "
+      "characters, timeout up to 300 s.",
+      {"command": S("the shell command (sh)"), "timeout_seconds": I("default 60, max 300")},
+      required=("command",), admin=True, guard=_shell_summary)
+async def run_shell(ctx: Ctx, command: str, timeout_seconds: int = 60):
+    from app.services import shell
+
+    return await shell.run(command, int(timeout_seconds or 60))
+
+
+def _sql_summary(a: dict) -> str:
+    return "🗄 **Bazani özgartiriş** (avval zaxira nusxa olinadi)\n```sql\n" + str(a.get("sql", ""))[:1500] + "\n```"
+
+
+@tool("execute_sql",
+      "Change the bot's database with any SQL (UPDATE, INSERT, DELETE, CREATE …), several statements allowed. "
+      "A backup copy of the database is saved first (data/backups/), so a mistake can be undone. Use "
+      "query_database to look before you change.",
+      {"sql": S("the SQL to run")}, required=("sql",), admin=True, guard=_sql_summary)
+async def execute_sql(ctx: Ctx, sql: str):
+    from app.services import dbquery
+
+    return await dbquery.write(sql)
