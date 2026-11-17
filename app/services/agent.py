@@ -532,8 +532,9 @@ async def message_user(ctx: Ctx, user_id: int, text: str, button_text: str | Non
     from app.api.admin import MessageIn
     from app.api.admin import message_user as send
 
-    await send(int(user_id), MessageIn(html=_html(text), button_text=button_text, button_url=button_url), b=ctx.bot)
-    return {"ok": True}
+    r = await send(int(user_id), MessageIn(html=_html(text), button_text=button_text, button_url=button_url),
+                   b=ctx.bot, me=ctx.user)
+    return {"ok": True, "saved_in_support_chat": r["message_id"], "sent_text": text}
 
 
 def _broadcast_summary(a: dict) -> str:

@@ -1,4 +1,5 @@
 import asyncio
+import html as html_lib
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -155,11 +156,17 @@ def _checked(body: MessageIn) -> str:
 
 
 @router.post("/users/{uid}/message")
-async def message_user(uid: int, body: MessageIn, b=Depends(bot)):
-    ok = await bc.send_one(b, uid, _checked(body), bc.markup(body.button_text, body.button_url))
+async def message_user(uid: int, body: MessageIn, b=Depends(bot), me: User = Depends(admin_user)):
+    text = _checked(body)
+    ok = await bc.send_one(b, uid, text, bc.markup(body.button_text, body.button_url))
     if not ok:
         raise HTTPException(502, "send_failed")
-    return {"ok": True}
+    # keep a copy in the student's admin chat, so the conversation history is complete
+    plain = html_lib.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>", "\n", text))).strip()
+    if body.button_text and body.button_url:
+        plain += f"\n\n[{body.button_text}] {body.button_url}"
+    m = await support.add(uid, plain, from_admin=True, admin_id=me.id)
+    return {"ok": True, "message_id": m.id}
 
 
 @router.post("/broadcast/preview")

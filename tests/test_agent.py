@@ -529,3 +529,27 @@ async def test_agent_reacts_without_an_extra_round(client, gemini, monkeypatch):
     # rude or unknown emoji are refused; without a message (Mini App) nothing breaks
     assert "error" in await agent.call(ctx, "react", {"emoji": "🖕"})
     assert (await agent.call(agent.Ctx(user=user), "react", {"emoji": "👍"}))["ok"] is False
+
+
+async def test_admin_direct_message_is_kept_in_support_chat(client, monkeypatch):  # noqa: F811
+    """What the admin agent sends with message_user shows up in the student's admin chat history."""
+    from app.services import broadcast as bc
+
+    async def sent_ok(bot, chat_id, html, kb):
+        return True
+
+    monkeypatch.setattr(bc, "send_one", sent_ok)
+    await client.get("/api/me", headers=auth(1, "Boss"))
+    await client.get("/api/me", headers=auth(370, name="Asadbek"))
+    async with Session() as s:
+        admin = await s.get(User, 1)
+    r = await agent.call(agent.Ctx(user=admin, bot=FakeBot()), "message_user", {
+        "user_id": 370, "text": "Salom! **Moodle Pro**ni ulang: Sozlamalar → Moodle → Pro.",
+        "button_text": "⚙️ Sozlamalar", "button_url": "https://t.me/uwedpulsebot"})
+    assert r["ok"] and r["saved_in_support_chat"]
+    chat = await agent.call(agent.Ctx(user=admin), "read_support_chat", {"user_id": 370})
+    msg = chat["messages"][-1]
+    assert msg["from"] == "admin" and msg["text"].startswith("Salom! Moodle Proni ulang") and "[⚙️ Sozlamalar]" in msg["text"]
+    # the student sees it in the Mini App's admin chat too
+    items = (await client.get("/api/support", headers=auth(370))).json()["items"]
+    assert items[-1]["from_admin"] and "Moodle Pro" in items[-1]["text"]
