@@ -301,6 +301,8 @@ class Status:
 
 
 MAX_STEPS = 8
+# tools that only decorate the reply: when the answer text is already written, they need no follow-up turn
+FINISHING_TOOLS = {"react", "reply_buttons"}
 
 
 async def _agent(system: str, turns: list[dict], ctx, tools: list[dict] | None):
@@ -313,7 +315,7 @@ async def _agent(system: str, turns: list[dict], ctx, tools: list[dict] | None):
     contents = _contents(turns)
     said = False
     for step in range(MAX_STEPS):
-        parts, calls, gap = [], [], said
+        parts, calls, gap, wrote = [], [], said, False
         async for part in _gemini_parts(system, contents, tools if step < MAX_STEPS - 1 else None):
             parts.append(part)
             if part.get("functionCall"):
@@ -322,9 +324,13 @@ async def _agent(system: str, turns: list[dict], ctx, tools: list[dict] | None):
                 if gap:
                     yield "\n\n"
                     gap = False
-                said = True
+                said = wrote = True
                 yield part["text"]
         if not calls or not parts:
+            return
+        if wrote and all(fc.get("name") in FINISHING_TOOLS for fc in calls):
+            for fc in calls:  # reaction / buttons alongside a finished answer: no extra model round trip
+                await agent.call(ctx, fc.get("name", ""), fc.get("args") or {})
             return
         # the model's turn goes back verbatim: Gemini needs its thought signatures
         contents.append({"role": "model", "parts": parts})

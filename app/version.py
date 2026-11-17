@@ -1,11 +1,12 @@
 """The one place the UWED Pulse version lives. Bump it (and add to CHANGES) with every release."""
 
-VERSION = "3.3.0"
+VERSION = "3.4.0"
 RELEASED = "2026-11-15"
 
 # What's new, shown in the Mini App (tap the version): this release first, then the previous big one.
 CHANGES = {
     "uz": [
+        "😊 AI xabaringizga vaziyatga qarab reaksiya qöyadi: ❤ 🔥 👍 🤔 🎉 va boşqalar",
         "🕵️ Admin agenti talabalar AI bilan nima haqida gaplaşayotganini körib, xulosa qilib beradi",
         "🛠 Admin uçun töliq boşqaruv: AI bazani özgartiradi (avval zaxira bilan) va serverda buyruq işlatadi",
         "🌐 AI internetdan qidiradi, havolalarni öqiydi va aniq hisob-kitob uçun kod işlatadi",
@@ -30,6 +31,7 @@ CHANGES = {
         "🔤 Yangi özbek lotin alifbosi",
     ],
     "ru": [
+        "😊 ИИ ставит реакции на ваши сообщения по ситуации: ❤ 🔥 👍 🤔 🎉 и другие",
         "🕵️ Агент админа видит, о чём студенты говорят с ИИ, и делает выводы",
         "🛠 Полный контроль для админа: ИИ меняет базу (с резервной копией) и выполняет команды на сервере",
         "🌐 ИИ ищет в интернете, читает ссылки и запускает код для точных расчётов",
@@ -54,6 +56,7 @@ CHANGES = {
         "🔤 Новый узбекский латинский алфавит",
     ],
     "en": [
+        "😊 The AI reacts to your messages when it fits: ❤ 🔥 👍 🤔 🎉 and more",
         "🕵️ The admin agent sees what students discuss with the AI and sums it up",
         "🛠 Full control for admins: the AI edits the database (after a backup) and runs commands on the server",
         "🌐 The AI searches the web, reads links and runs code for exact calculations",

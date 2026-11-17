@@ -508,3 +508,24 @@ async def test_admin_reads_students_ai_chats(client):  # noqa: F811
     assert [m["from"] for m in r["conversations"][0]["messages"]] == ["student", "ai"] and ctx.tainted
     assert (await agent.call(ctx, "read_ai_chats", {"user_id": 1}))["conversations"][0]["messages"][0]["text"] == "admin test"
     assert "not available" in (await agent.call(agent.Ctx(user=student), "read_ai_chats", {}))["error"]
+
+
+async def test_agent_reacts_without_an_extra_round(client, gemini, monkeypatch):  # noqa: F811
+    """'rahmat!' → the answer and a ❤ reaction come in one model turn; no second call is made."""
+    from aiogram.methods import SetMessageReaction
+
+    script, sent = gemini
+    script.append(sse({"text": "Arzimaydi! 🙂"}, {"functionCall": {"name": "react", "args": {"emoji": "❤"}}}))
+    await client.get("/api/me", headers=auth(360))
+    async with Session() as s:
+        user = await s.get(User, 360)
+    bot = FakeBot()
+    ctx = agent.Ctx(user=user, bot=bot, chat_id=360, message_id=77)
+    chunks = [c async for c in ai.ask_stream(user, "Katta rahmat, juda yordam berdingiz!", ctx=ctx)]
+    assert "".join(c for c in chunks if isinstance(c, str)) == "Arzimaydi! 🙂"
+    assert len(sent) == 1  # no follow-up round trip just for the reaction
+    reaction = [m for m in bot.sent if isinstance(m, SetMessageReaction)][0]
+    assert (reaction.chat_id, reaction.message_id, reaction.reaction[0].emoji) == (360, 77, "❤")
+    # rude or unknown emoji are refused; without a message (Mini App) nothing breaks
+    assert "error" in await agent.call(ctx, "react", {"emoji": "🖕"})
+    assert (await agent.call(agent.Ctx(user=user), "react", {"emoji": "👍"}))["ok"] is False

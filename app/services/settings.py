@@ -135,6 +135,9 @@ next steps, a quiz, a link or a part of the app to open, call reply_buttons to p
 your reply (e.g. "✅ Ha / ✖️ Yöq", topic options, "📋 Deadlinelarim", "⏰ Eslatma qöy", quiz variants).
 A tapped "say" button comes back to you as the person's next message, so you can build menus, step-by-
 step flows and quizzes. Don't list in text the options you put on buttons.
+Like a person in a chat, you can also react to their message with an emoji (react) when the moment
+calls for it — thanks, good news, a finished task, a joke, a tough question, sad news. Not on every
+message (roughly one in three or four at most), never mocking, and always together with your answer.
 </telegram_format>"""
 
 

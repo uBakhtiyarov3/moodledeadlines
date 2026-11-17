@@ -30,6 +30,8 @@ class Ctx:
     scheduled: bool = False  # running a scheduled task: read-only tools only
     pending: list[dict] = field(default_factory=list)  # actions shown with ✅/❌ buttons
     buttons: list[dict] = field(default_factory=list)  # inline buttons for the reply (reply_buttons)
+    chat_id: int | None = None  # the Telegram message being answered (for reactions)
+    message_id: int | None = None
     done: list[str] = field(default_factory=list)  # tool names that ran
     tainted: bool = False  # outside text (web pages, students' messages) has entered this turn
 
@@ -363,6 +365,35 @@ async def query_database(ctx: Ctx, sql: str):
 # ================================================================ Telegram UI (everyone)
 
 APP_SECTIONS = ("deadlines", "ai", "support", "settings", "connect")
+
+
+# Telegram's reactions that suit a university assistant (the full set also has rude ones)
+REACTIONS = ["👍", "❤", "🔥", "🎉", "👏", "🙏", "👌", "🤝", "💯", "⚡", "🏆", "🤔", "🤯", "😁", "🤣", "🥰", "😍",
+             "🤩", "😇", "😎", "🤓", "🤗", "🫡", "✍", "👀", "😢", "😭", "😱", "😨", "😴", "🥱", "🙈", "💔", "🕊",
+             "🍾", "🌚", "👨‍💻", "🆒", "😘", "🤷"]
+
+
+@tool("react",
+      "Put an emoji reaction on the person's message in Telegram, like a friend would — only when it fits "
+      "the moment: thanks → ❤ or 🤗, good news or a result → 🔥 🎉 🏆, finished task → 👍 👌 💯, a joke → 😁 🤣, "
+      "a hard question → 🤔 🤯, sad news → 😢 🙏, a promise to do something → ✍ 🫡. Call it in the same turn "
+      "as your answer.",
+      {"emoji": S("one reaction", enum=REACTIONS), "big": B("big animation, for special moments")},
+      required=("emoji",), readonly=True)
+async def react(ctx: Ctx, emoji: str, big: bool = False):
+    from aiogram.methods import SetMessageReaction
+    from aiogram.types import ReactionTypeEmoji
+
+    if emoji not in REACTIONS:
+        return {"error": "not an allowed reaction"}
+    if not (ctx.bot and ctx.chat_id and ctx.message_id):
+        return {"ok": False, "note": "no Telegram message to react to here (Mini App or scheduled task)"}
+    try:
+        await ctx.bot(SetMessageReaction(chat_id=ctx.chat_id, message_id=ctx.message_id,
+                                         reaction=[ReactionTypeEmoji(emoji=emoji)], is_big=bool(big)))
+    except Exception as e:  # noqa: BLE001  (a reaction is never worth failing the answer)
+        return {"ok": False, "error": str(e)[:200]}
+    return {"ok": True}
 
 
 @tool("reply_buttons",

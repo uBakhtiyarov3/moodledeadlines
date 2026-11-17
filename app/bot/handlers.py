@@ -339,6 +339,8 @@ MAX_INLINE = 14 * 1024 * 1024  # media sent to the AI as is (base64 must fit Gem
 async def _answer_ai(message: Message, user: User, text: str, media: list | None = None, voice: bool = False):
     """Stream the answer live as a rich draft, then send it as a rich message."""
     ctx = agent.Ctx(user=user, bot=message.bot)
+    if message.from_user and message.from_user.id == user.id:  # the person's own message: it can get a reaction
+        ctx.chat_id, ctx.message_id = message.chat.id, message.message_id
     try:
         answer = await rich.stream(
             message.bot, message.chat.id, ai.ask_stream(user, text, media, ctx=ctx), thinking=t("thinking", user.lang)
