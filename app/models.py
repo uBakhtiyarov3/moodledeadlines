@@ -291,3 +291,16 @@ class CourseName(Base):
     shortname: Mapped[str] = mapped_column(String(255), primary_key=True)
     fullname: Mapped[str] = mapped_column(String(255))
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class SentMessage(Base):
+    """Everything the agent sent on someone's order: who ordered it, to whom, how, and the exact text."""
+
+    __tablename__ = "sent_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    by_user_id: Mapped[int] = mapped_column(BigInteger, index=True)  # the admin whose agent sent it
+    chat_id: Mapped[str | None] = mapped_column(String(64), index=True)  # None = broadcast
+    via: Mapped[str] = mapped_column(String(64))  # message_user | broadcast | reply_support | telegram_api:sendMessage …
+    text: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)

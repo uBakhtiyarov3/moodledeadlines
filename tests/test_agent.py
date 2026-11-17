@@ -553,3 +553,45 @@ async def test_admin_direct_message_is_kept_in_support_chat(client, monkeypatch)
     # the student sees it in the Mini App's admin chat too
     items = (await client.get("/api/support", headers=auth(370))).json()["items"]
     assert items[-1]["from_admin"] and "Moodle Pro" in items[-1]["text"]
+
+
+async def test_agent_can_show_what_it_sent(client, monkeypatch):  # noqa: F811
+    """Whatever channel the agent used, sent_messages returns the exact text."""
+    from aiogram.methods import SendMessage
+    from aiogram.types import Chat, Message
+
+    from app.services import broadcast as bc
+
+    async def sent_ok(bot, chat_id, html, kb):
+        return True
+
+    async def fake_run(bot, bid):
+        return None
+
+    monkeypatch.setattr(bc, "send_one", sent_ok)
+    monkeypatch.setattr(bc, "run", fake_run)
+
+    class Recorder(FakeBot):
+        async def __call__(self, method, request_timeout=None):
+            self.sent.append(method)
+            if isinstance(method, SendMessage):
+                return Message(message_id=9, date=datetime.now(timezone.utc), chat=Chat(id=method.chat_id, type="private"), text=method.text)
+            return True
+
+    await client.get("/api/me", headers=auth(1, "Boss"))
+    await client.get("/api/me", headers=auth(380, name="Asadbek"))
+    async with Session() as s:
+        admin = await s.get(User, 1)
+    ctx = agent.Ctx(user=admin, bot=Recorder())
+    await agent.call(ctx, "message_user", {"user_id": 380, "text": "Moodle Pro'ni ulang"})
+    await agent.call(ctx, "telegram_api", {"method": "sendMessage", "params": json.dumps({
+        "chat_id": 380, "text": "Ertaga dars 9:00 da",
+        "reply_markup": {"inline_keyboard": [[{"text": "OK", "callback_data": "ok"}]]}})})
+    await agent.call(ctx, "telegram_api", {"method": "getMe"})  # not a send → not logged
+    await agent.call(ctx, "broadcast", {"text": "Imtihon jadvali e'lon qilindi", "langs": ["uz"]})
+
+    log = (await agent.call(ctx, "sent_messages", {}))["sent"]
+    assert [e["via"] for e in log] == ["broadcast #1 (uz)", "telegram_api:sendMessage", "message_user"]
+    assert log[1]["to"] == "380" and log[1]["to_name"] == "Asadbek" and log[1]["text"] == "Ertaga dars 9:00 da\nButtons: OK"
+    assert [e["text"] for e in (await agent.call(ctx, "sent_messages", {"user_id": 380}))["sent"]] == [
+        "Ertaga dars 9:00 da\nButtons: OK", "Moodle Pro'ni ulang"]

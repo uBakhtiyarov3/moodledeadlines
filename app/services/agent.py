@@ -15,7 +15,7 @@ from aiogram import Bot
 from fastapi import HTTPException
 from app.db import Session
 from app.models import PendingAction, User
-from app.services import kb, profile, tasks, users
+from app.services import kb, outbox, profile, tasks, users
 from app.services import settings as rt
 
 log = logging.getLogger(__name__)
@@ -455,7 +455,10 @@ async def telegram_api(ctx: Ctx, method: str, params: str | dict | None = None):
             return {"error": f"params is not valid JSON: {e}"}
     if not isinstance(params, dict):
         return {"error": "params must be a JSON object"}
-    return await tgapi.call(ctx.bot, method, params)
+    result = await tgapi.call(ctx.bot, method, params)
+    if result.get("ok") and str(method).startswith(outbox.SENDING):
+        await outbox.log(ctx.user.id, f"telegram_api:{method}", params.get("chat_id"), outbox.text_of(params))
+    return result
 
 
 @tool("telegram_api_reference",
@@ -534,6 +537,8 @@ async def message_user(ctx: Ctx, user_id: int, text: str, button_text: str | Non
 
     r = await send(int(user_id), MessageIn(html=_html(text), button_text=button_text, button_url=button_url),
                    b=ctx.bot, me=ctx.user)
+    await outbox.log(ctx.user.id, "message_user", user_id,
+                     text + (f"\nButton: [{button_text}] {button_url}" if button_text and button_url else ""))
     return {"ok": True, "saved_in_support_chat": r["message_id"], "sent_text": text}
 
 
@@ -565,6 +570,8 @@ async def broadcast(ctx: Ctx, text: str, langs=None, only_moodle_linked: bool = 
             "segment": seg.model_dump(), "button_text": button_text, "button_url": button_url})
         return {"ok": True, "scheduled": tasks.out(t)}
     r = await start_broadcast(body, me=ctx.user, b=ctx.bot)
+    who = ", ".join(seg.langs) or "everyone"
+    await outbox.log(ctx.user.id, f"broadcast #{r['id']} ({who}{', Moodle only' if seg.linked else ''})", None, text)
     return {"ok": True, "broadcast_id": r["id"]}
 
 
@@ -573,6 +580,16 @@ async def list_broadcasts(ctx: Ctx):
     from app.api.admin import broadcasts
 
     return {"broadcasts": await broadcasts()}
+
+
+@tool("sent_messages",
+      "Exactly what YOU (the agent) sent on the admins' orders — direct messages, replies, broadcasts and "
+      "every Telegram send — with recipient, time, method and the full text. Use it whenever the admin asks "
+      "what was sent, to whom or when.",
+      {"user_id": I("only messages to this person (Telegram ID)"), "days": I("how far back, default 7"),
+       "limit": I("max entries, default 50")}, admin=True, readonly=True)
+async def sent_messages(ctx: Ctx, user_id: int | None = None, days: int = 7, limit: int = 50):
+    return {"sent": await outbox.recent(user_id, days, limit)}
 
 
 @tool("read_ai_chats",
@@ -631,6 +648,7 @@ async def reply_support(ctx: Ctx, user_id: int, text: str):
     if not await users.get(int(user_id)):
         return {"error": "no such user"}
     await support.from_admin(ctx.bot, ctx.user, int(user_id), text.strip()[:4000])
+    await outbox.log(ctx.user.id, "reply_support", user_id, text.strip())
     return {"ok": True}
 
 
