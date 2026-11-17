@@ -8,7 +8,7 @@ UWED talabalari uchun Telegram bot + Mini App:
   "Avto-bajarildi" rejimida Moodle'ning o'zi aytadi.
 - 🤖 **AI yordamchi (repetitor)** — Google Gemini (bepul tarif): matn, 🎤 ovozli xabar, 🖼 rasm va 📄 PDF'ni
   o'zbek/rus/ingliz tilida tushunadi. Telegram chatning o'zida (`/new` — yangi mavzu) va Mini App'da (📎 bilan)
-  ishlaydi; admin to'ldiradigan bilim bazasiga tayanadi. Kerak bo'lsa Claude (Amazon Bedrock) ga bir qator bilan o'tadi.
+  ishlaydi; admin to'ldiradigan bilim bazasiga tayanadi.
 - 💬 **Admin bilan chat** — botdagi tugma yoki Mini App'dagi "Admin" bo'limi (shaxsiy chat ko'rinishida);
   admin Telegram'da rich karta oladi va reply/«↩️ Javob berish» yoki admin paneldagi «Chat» orqali javob beradi.
 - 🛠 **Admin panel** (alohida Mini App) — statistika, foydalanuvchilar, rich-text xabar yuborish,
@@ -29,7 +29,7 @@ Mini App (HTTPS) ───► │ FastAPI API  ─┼─► SQLite/Postgres     
   /admin (admin)      │                   └─ har 5 daq: 30 daqiqadan eski userlarni  │
                       │                       Moodle'dan qayta sinxronlash           │
                       └──────────► moodle.uwed.uz (iCal / web-service)               │
-                                 └► Amazon Bedrock (Claude Opus 4.5)                 │
+                                 └► Google Gemini (AI agent)                          │
 ```
 
 | Papka | Nima bor |
@@ -59,7 +59,7 @@ Ikkalasi `moodle.uwed.uz` da ishlashi tekshirildi.
 
 1. **Telegram bot tokeni** — @BotFather → `/newbot`.
 2. **Telegram ID'ingiz** (admin bo'lish uchun) — @userinfobot ga yozing.
-3. **Gemini API kaliti** — pastdagi 4-bo'lim (bepul). (AWS Bedrock — faqat Claude'ga o'tmoqchi bo'lsangiz, 4B-bo'lim.)
+3. **Gemini API kaliti** — pastdagi 4-bo'lim (bepul).
 4. **Server** — Google Cloud akkaunt (billing ulangan) yoki boshqa VPS.
 
 Kalitlarni chatga yoki GitHub'ga yubormang — faqat serverdagi `.env` fayliga yoziladi.
@@ -115,58 +115,6 @@ Serverda `ffmpeg` kerak (Docker image'da bor).
 🖼 rasm (JPG/PNG/WebP); 📄 PDF (15 MB gacha). Word (`.docx`) fayllar hozircha qabul qilinmaydi —
 talabaga PDF qilib yuborishni aytadi. Mini App'da 📎 orqali rasm/PDF; ovoz — bot chatida.
 
-## 4B. (Ixtiyoriy) Amazon Bedrock: Claude Opus 4.5'ni ulash
-
-`.env` da `AI_PROVIDER=bedrock` qilsangiz, Gemini o'rniga Claude ishlaydi (pullik; rasm va matn,
-ovozli xabarni qabul qilmaydi).
-
-Siz tanlagan model: **Claude Opus 4.5**, Model ID `anthropic.claude-opus-4-5-20251101-v1:0`,
-*Cross-region inference*. Shuning uchun kodda **inference profile** ishlatiladi:
-
-```
-BEDROCK_MODEL_ID=us.anthropic.claude-opus-4-5-20251101-v1:0
-AWS_REGION=us-east-1
-```
-
-### 4.1 Modelga ruxsat
-1. AWS Console → **Amazon Bedrock** → (region: *US East (N. Virginia)*).
-2. Anthropic modelini birinchi marta ishlatishda **use case** formasi so'raladi
-   (Model catalog → Claude Opus 4.5 → *Open in playground* → forma chiqsa to'ldiring).
-   Playground'da bitta savol yuborib, javob kelishini tekshiring.
-
-### 4.2 Bot uchun alohida IAM foydalanuvchi
-1. **IAM → Users → Create user** → nomi `uwed-bot` (Console access kerak emas).
-2. **Permissions → Create inline policy → JSON**:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-      "Resource": [
-        "arn:aws:bedrock:us-east-1:*:inference-profile/us.anthropic.claude-opus-4-5-20251101-v1:0",
-        "arn:aws:bedrock:*::foundation-model/anthropic.claude-opus-4-5-20251101-v1:0"
-      ]
-    }
-  ]
-}
-```
-
-   (Ikkinchi qator `*` region bilan — cross-region profil so'rovni boshqa US regionlarga ham yo'naltiradi.)
-3. User → **Security credentials → Create access key** → *Application running outside AWS* →
-   `AWS_ACCESS_KEY_ID` va `AWS_SECRET_ACCESS_KEY` ni `.env` ga yozing.
-4. **Billing → Budgets** da oylik limit qo'ying (masalan $20) — xarajat nazorati uchun.
-
-### 4.3 Narx haqida
-Bedrock — **pullik** (token bo'yicha). Opus 4.5 kuchli, lekin qimmatroq model.
-Xarajatni boshqarish: admin panel → Sozlamalar → *Kunlik limit* (default 30 savol/talaba),
-`AI_MAX_TOKENS` (default 1500). Arzonroq variant kerak bo'lsa, faqat `BEDROCK_MODEL_ID` ni
-boshqa Claude modeliga almashtirish yetarli.
-
----
-
 ## 5. AI'ni "o'qitish" — qanday ishlaydi
 
 Model qayta o'qitilmaydi (fine-tuning kerak emas va qimmat). Buning o'rniga **RAG** ishlatiladi:
@@ -174,7 +122,7 @@ Model qayta o'qitilmaydi (fine-tuning kerak emas va qimmat). Buning o'rniga **RA
 1. Admin panel → **AI** bo'limi → **＋ Qo'shish** — UWED haqidagi matnni joylang.
 2. Matn bo'laklarga bo'linadi; talaba savol berganda eng mos 4 ta bo'lak topiladi
    (o'zbek, rus, ingliz tillarida ishlaydigan kalit so'z qidiruvi).
-3. Shu bo'laklar + talabaning yaqin deadlinelari Claude'ga kontekst sifatida beriladi →
+3. Shu bo'laklar + talabaning yaqin deadlinelari Gemini'ga kontekst sifatida beriladi →
    javob faqat shu ma'lumotga tayanadi, bilmasa "dekanatga murojaat qiling" deydi.
 4. **AI'ni sinash** maydonida savol berib, javob va qaysi manbalar ishlatilganini ko'rasiz.
 
@@ -190,7 +138,7 @@ Model qayta o'qitilmaydi (fine-tuning kerak emas va qimmat). Buning o'rniga **RA
 
 Maslahatlar: har bir hujjat — bitta mavzu; sarlavha aniq bo'lsin; savol-javob (FAQ) shakli eng yaxshi
 ishlaydi; eskirgan hujjatni o'chirmasdan **Faol** tugmasini o'chirib qo'ysa bo'ladi.
-Bir hujjatni bir nechta tilda yozish shart emas — Claude talaba tilida javob beradi.
+Bir hujjatni bir nechta tilda yozish shart emas — AI talaba tilida javob beradi.
 
 ### AI chegaralari (o'zini kimligini biladi)
 AI'ning asosiy qoidalari kodda qotirilgan (`app/services/settings.py` → `CORE_PROMPT`) va admin paneldan

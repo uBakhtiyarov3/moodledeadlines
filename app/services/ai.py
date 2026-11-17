@@ -1,5 +1,4 @@
-"""AI assistant. Default provider: Google Gemini (free tier; text + image + audio).
-Alternative: Claude on Amazon Bedrock (text + image), via AI_PROVIDER=bedrock."""
+"""AI assistant and agent on Google Gemini (text, images, PDF, audio, video)."""
 
 import base64
 import json
@@ -14,7 +13,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import Session
 from app.models import ChatMessage, Deadline, User
-from app.services import agent, claude_agent, coursenames, kb, profile, users
+from app.services import agent, coursenames, kb, profile, users
 from app.services import settings as rt
 from app.version import RELEASED, VERSION, changes
 
@@ -187,7 +186,7 @@ async def _gemini_generate(system: str, turns: list[dict]) -> str:
 async def quick_json(system: str, text: str) -> dict | None:
     """One small JSON-mode call on the light model (background jobs); None on any failure."""
     st = get_settings()
-    if st.ai_provider != "gemini" or not st.gemini_api_key:
+    if not st.gemini_api_key:
         return None
     body = {
         "system_instruction": {"parts": [{"text": system}]},
@@ -340,40 +339,6 @@ async def _agent(system: str, turns: list[dict], ctx, tools: list[dict] | None):
         contents.append({"role": "user", "parts": responses})
 
 
-def client():
-    """Bedrock client (only used with AI_PROVIDER=bedrock)."""
-    global _client
-    if _client is None:
-        from anthropic import AsyncAnthropicBedrock
-
-        _client = AsyncAnthropicBedrock(aws_region=get_settings().aws_region)
-    return _client
-
-
-async def _bedrock_generate(system: str, turns: list[dict]) -> str:
-    messages = []
-    for turn in turns:
-        content = []
-        for m in turn.get("media", []):
-            if m.kind != "image":
-                raise AIUnavailable("unsupported")
-            content.append({"type": "image", "source": {"type": "base64", "media_type": m.mime, "data": base64.b64encode(m.data).decode()}})
-        content.append({"type": "text", "text": turn["text"] or "(see attachment)"})
-        if messages and messages[-1]["role"] == turn["role"]:
-            messages[-1]["content"].extend(content)
-        else:
-            messages.append({"role": turn["role"], "content": content})
-    resp = await client().messages.create(
-        model=get_settings().bedrock_model_id,
-        max_tokens=get_settings().ai_max_tokens,
-        system=system,
-        messages=messages,
-    )
-    if resp.stop_reason == "refusal":
-        return ""
-    return "".join(b.text for b in resp.content if b.type == "text").strip()
-
-
 # ---------------------------------------------------------------- public API
 
 async def _prepare(user: User, question: str, media: list[Media], as_student: bool = False,
@@ -443,22 +408,18 @@ async def _save(user_id: int, question: str, media: list[Media], answer: str) ->
 async def ask(user: User, question: str, media: list[Media] | None = None, as_student: bool = False,
               ctx=None) -> str:
     """The whole answer at once (Mini App). as_student: the admin panel's preview — no tools."""
-    if not as_student and get_settings().ai_provider == "gemini":
+    if not as_student:
         chunks = [c async for c in ask_stream(user, question, media, ctx=ctx)]
         return "".join(c for c in chunks if isinstance(c, str)).strip()
     media = media or []
     question = (question or "").strip()[:4000]
     lang, system, turns = await _prepare(user, question, media, as_student)
-    provider = get_settings().ai_provider
     try:
-        if provider == "bedrock":
-            answer = await _bedrock_generate(system, turns)
-        else:
-            answer = await _gemini_generate(system, turns)
+        answer = await _gemini_generate(system, turns)
     except AIUnavailable:
         raise
     except Exception:  # noqa: BLE001
-        log.exception("%s call failed", provider)
+        log.exception("gemini call failed")
         raise AIUnavailable("error")
     answer = answer or REFUSAL.get(lang, REFUSAL["en"])
     await _save(user.id, question, media, answer)
@@ -473,17 +434,12 @@ async def ask_stream(user: User, question: str, media: list[Media] | None = None
     """
     media = media or []
     question = (question or "").strip()[:4000]
-    if get_settings().ai_provider == "bedrock":
-        yield await ask(user, question, media)
-        return
     ctx = ctx or agent.Ctx(user=user)
     lang, system, turns = await _prepare(user, question, media, scheduled=ctx.scheduled)
     tools = agent.declarations(ctx.user, scheduled=ctx.scheduled)
-    engine = engine_for(ctx.user, media)
-    run = claude_agent.run(system, turns, ctx, tools) if engine == "claude" else _agent(system, turns, ctx, tools)
     answer = ""
     try:
-        async for chunk in run:
+        async for chunk in _agent(system, turns, ctx, tools):
             if isinstance(chunk, str):
                 answer += chunk
             yield chunk
@@ -500,15 +456,6 @@ async def ask_stream(user: User, question: str, media: list[Media] | None = None
         answer = REFUSAL.get(lang, REFUSAL["en"]) if not (ctx.done or ctx.pending) else "✅"
         yield answer
     await _save(user.id, question, media, answer.strip())
-
-
-def engine_for(user: User, media: list[Media] | None = None) -> str:
-    """'claude' when the admin picked it for this person and Claude can read the input, else 'gemini'."""
-    if rt.get("ai_engine") != "claude" or not claude_agent.available():
-        return "gemini"
-    if rt.get("claude_scope") != "everyone" and not users.is_admin(user):
-        return "gemini"
-    return "claude" if claude_agent.can_read(media or []) else "gemini"  # voice/video → Gemini
 
 
 async def run_scheduled(user: User, instruction: str, bot) -> str:

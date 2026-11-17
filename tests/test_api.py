@@ -1,4 +1,4 @@
-"""End-to-end API tests against an in-memory app (no Telegram, no Moodle, no Bedrock)."""
+"""End-to-end API tests against an in-memory app (no Telegram, no Moodle, no Gemini)."""
 
 import base64
 import hashlib
@@ -143,7 +143,7 @@ async def test_admin_access_and_features(client, monkeypatch):
     s = (await client.get("/api/admin/stats", headers=ha)).json()
     assert s["users"] >= 1
 
-    # knowledge base + AI test with a fake Bedrock client
+    # knowledge base + AI test with a fake Gemini
     r = await client.post("/api/admin/kb", headers=ha, json={"title": "Kutubxona", "content": "Kutubxona 9:00 dan 18:00 gacha ishlaydi."})
     assert r.status_code == 200
 
@@ -201,19 +201,6 @@ async def test_admin_access_and_features(client, monkeypatch):
     assert r.status_code == 200 and tried == ["gemini-4-hydrogen:streamGenerateContent", "gemini-3.8-flash:streamGenerateContent"]
     monkeypatch.setattr(ai_mod, "_http", lambda: httpx.AsyncClient(transport=httpx.MockTransport(gemini)))
 
-    # Bedrock provider still works when selected
-    calls = {}
-
-    class FakeMessages:
-        async def create(self, **kw):
-            calls.update(kw)
-            return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text="ok")])
-
-    monkeypatch.setattr(get_settings(), "ai_provider", "bedrock")
-    monkeypatch.setattr(ai_mod, "client", lambda: SimpleNamespace(messages=FakeMessages()))
-    r = await client.post("/api/admin/ai/test", headers=ha, json={"message": "salom"})
-    assert r.json()["html"] == "ok" and calls["model"] == "us.anthropic.claude-opus-4-5-20251101-v1:0"
-    monkeypatch.setattr(get_settings(), "ai_provider", "gemini")
 
     # student chat + history + limit
     await client.put("/api/admin/settings", headers=ha, json={"ai_daily_limit": 1})
@@ -368,7 +355,7 @@ async def test_version_everywhere(client):
 
     assert (await client.get("/healthz")).json() == {"ok": True, "version": VERSION}
     me = (await client.get("/api/me", headers=auth(330, lang="ru"))).json()
-    assert me["version"] == VERSION and me["changes"][0].startswith("🛠 Полный контроль")
+    assert me["version"] == VERSION and me["changes"][0].startswith("🕵️ Агент админа")
     assert (await client.get("/api/admin/stats", headers=auth(1, "Boss"))).json()["version"] == VERSION
 
 

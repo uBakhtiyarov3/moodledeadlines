@@ -427,69 +427,6 @@ async def test_full_course_names_replace_calendar_codes(client):  # noqa: F811
     assert coursenames.full("xih_202627").startswith("Xalqaro investitsiya")
 
 
-class FakeClaude:
-    """Just enough of AsyncAnthropic.beta.messages.stream for the agent loop."""
-
-    def __init__(self, replies):
-        self.replies, self.calls = list(replies), []
-        self.beta = SimpleNamespace(messages=SimpleNamespace(stream=self.stream))
-
-    def stream(self, **params):
-        self.calls.append(params)
-        reply = self.replies.pop(0)
-
-        class Stream:
-            async def __aenter__(s):
-                async def gen():
-                    for b in reply:
-                        if b.type == "text":
-                            yield b.text
-                s.text_stream = gen()
-                return s
-
-            async def __aexit__(s, *a):
-                return False
-
-            async def get_final_message(s):
-                return SimpleNamespace(content=reply, stop_reason="tool_use" if any(b.type == "tool_use" for b in reply) else "end_turn")
-
-        return Stream()
-
-
-from types import SimpleNamespace  # noqa: E402
-
-
-async def test_claude_engine_for_admins(client, monkeypatch):  # noqa: F811
-    from app.services import claude_agent
-
-    tool_use = SimpleNamespace(type="tool_use", id="tu1", name="bot_stats", input={})
-    fake = FakeClaude([[SimpleNamespace(type="text", text="Tekshiraman."), tool_use],
-                       [SimpleNamespace(type="text", text="Botda 2 ta user bor.")]])
-    monkeypatch.setattr(get_settings(), "anthropic_api_key", "sk-test")
-    monkeypatch.setattr(claude_agent, "client", lambda: fake)
-    monkeypatch.setattr(profile, "learn_later", lambda *a: None)
-    monkeypatch.setitem(rt._cache, "ai_engine", "claude")
-    await client.get("/api/me", headers=auth(331))
-
-    r = await client.post("/api/ai", headers=auth(1, "Boss"), json={"message": "nechta user bor?"})
-    assert r.json()["answer"] == "Tekshiraman.\n\nBotda 2 ta user bor."
-    first, second = fake.calls
-    assert first["model"] == "claude-opus-5-5" and first["fallbacks"] == "default"
-    assert "query_database" in {t["name"] for t in first["tools"]}
-    assert first["tools"][0]["input_schema"]["type"] == "object"
-    result = second["messages"][-1]["content"][0]
-    assert result["type"] == "tool_result" and result["tool_use_id"] == "tu1" and '"users"' in result["content"]
-    assert second["messages"][-2]["content"][1] is tool_use  # the assistant turn goes back unchanged
-
-    async with Session() as s:
-        admin, student = await s.get(User, 1), await s.get(User, 331)
-    assert ai.engine_for(student) == "gemini"  # scope "admins"
-    monkeypatch.setitem(rt._cache, "claude_scope", "everyone")
-    assert ai.engine_for(student) == "claude"
-    assert ai.engine_for(admin, [ai.Media("audio", "audio/ogg", b"x")]) == "gemini"  # voice stays on Gemini
-    monkeypatch.setattr(get_settings(), "anthropic_api_key", "")
-    assert ai.engine_for(admin) == "gemini"  # no key → Gemini
-
 
 async def test_open_world_tools(client, gemini):  # noqa: F811
     from app.services import dbquery, webfetch
@@ -552,3 +489,22 @@ async def test_admin_full_control_shell_and_sql(client, monkeypatch):  # noqa: F
     await agent.call(ctx, "fetch_url", {"url": "https://example.org"})
     r = await agent.call(ctx, "run_shell", {"command": "rm -rf /srv/data"})
     assert r["status"] == "awaiting_confirmation" and "rm -rf" in ctx.pending[0]["summary"]
+
+
+async def test_admin_reads_students_ai_chats(client):  # noqa: F811
+    from app.models import ChatMessage
+
+    await client.get("/api/me", headers=auth(1, "Boss"))
+    await client.get("/api/me", headers=auth(350, name="Madina"))
+    async with Session() as s:
+        s.add_all([ChatMessage(user_id=350, role="user", content="Kontrakt qaçon tölanadi?"),
+                   ChatMessage(user_id=350, role="assistant", content="1-oktabrgaça."),
+                   ChatMessage(user_id=1, role="user", content="admin test")])
+        await s.commit()
+        admin, student = await s.get(User, 1), await s.get(User, 350)
+    ctx = agent.Ctx(user=admin)
+    r = await agent.call(ctx, "read_ai_chats", {"search": "kontrakt"})
+    assert r["students"] == 1 and r["conversations"][0]["name"] == "Madina"
+    assert [m["from"] for m in r["conversations"][0]["messages"]] == ["student", "ai"] and ctx.tainted
+    assert (await agent.call(ctx, "read_ai_chats", {"user_id": 1}))["conversations"][0]["messages"][0]["text"] == "admin test"
+    assert "not available" in (await agent.call(agent.Ctx(user=student), "read_ai_chats", {}))["error"]

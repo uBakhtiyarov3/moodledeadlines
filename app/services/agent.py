@@ -543,6 +543,37 @@ async def list_broadcasts(ctx: Ctx):
     return {"broadcasts": await broadcasts()}
 
 
+@tool("read_ai_chats",
+      "What students talk about with the AI assistant: their conversations (newest first), optionally for "
+      "one student, only the last N days, or only messages containing a word. Use it to see topics, "
+      "questions and problems, or one student's chat history.",
+      {"user_id": I("only this student (Telegram ID)"), "search": S("only conversations with this word"),
+       "days": I("how far back, default 7"), "limit": I("max messages, default 150, max 400")},
+      admin=True, readonly=True, taints=True)
+async def read_ai_chats(ctx: Ctx, user_id: int | None = None, search: str = "", days: int = 7, limit: int = 150):
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from app.models import ChatMessage
+
+    since = datetime.now(timezone.utc) - timedelta(days=max(1, min(int(days or 7), 365)))
+    q = select(ChatMessage, User).join(User, User.id == ChatMessage.user_id).where(ChatMessage.created_at > since)
+    if user_id:
+        q = q.where(ChatMessage.user_id == int(user_id))
+    if search:
+        hits = select(ChatMessage.user_id).where(ChatMessage.content.ilike(f"%{search}%"), ChatMessage.created_at > since)
+        q = q.where(ChatMessage.user_id.in_(hits))
+    async with Session() as s:
+        rows = (await s.execute(q.order_by(ChatMessage.id.desc()).limit(max(1, min(int(limit or 150), 400))))).all()
+    chats: dict[int, dict] = {}
+    for m, u in reversed(rows):
+        c = chats.setdefault(u.id, {"user_id": u.id, "name": u.first_name, "username": u.username, "messages": []})
+        c["messages"].append({"from": "student" if m.role == "user" else "ai", "at": tasks.local_str(m.created_at),
+                              "text": m.content[:1500]})
+    return {"conversations": list(chats.values()), "students": len(chats), "messages": len(rows)}
+
+
 @tool("support_inbox", "Students' chats with the admins (newest first, with unread counts).", admin=True, readonly=True, taints=True)
 async def support_inbox(ctx: Ctx):
     from app.services import support
@@ -641,10 +672,6 @@ def _settings_summary(a: dict) -> str | None:
        "ai_model": S("Gemini model id tried first, e.g. gemini-4-hydrogen, gemini-3.8-flash"),
        "grades_categories": {"type": "array", "items": {"type": "integer"},
                              "description": "Moodle category ids whose courses (with subcategories) the grades page shows; [] = all"},
-       "ai_engine": S("which model family runs the assistant", enum=["gemini", "claude"]),
-       "claude_scope": S("with ai_engine=claude: only admins' chats, or everyone", enum=["admins", "everyone"]),
-       "claude_model": S("Claude model id, e.g. claude-opus-5-5, claude-sonnet-5-5"),
-       "claude_effort": S("Claude thinking effort", enum=["low", "medium", "high", "xhigh", "max"]),
        "agent_confirm": B("ask the admin for ✅ before broadcasts, bans, deletions, switching off"),
        "ai_daily_limit": I("AI questions per student per day"),
        "ai_system_prompt": S("extra instructions for the AI (admin notes), full new text"),

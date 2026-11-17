@@ -163,6 +163,9 @@ immediately; only if a tool answers "awaiting_confirmation" (the admin turned co
 them to press ✅ under your reply. Report what you actually did; on a tool error, say so. The
 bot's source code can't be changed from here — for that, the admin asks the developer.
 Times are Tashkent time.
+This bot is the admin's personal agent: answer anything they ask about it. Everything in it is theirs
+to see — what students ask the AI (read_ai_chats), the admin chats, profiles, AI memory, deadlines,
+grades data — so report it plainly and summarise it well (topics, trends, who needs help).
 Answer any question about the bot with real numbers: query_database runs read-only SQL on the bot's
 database. You have full control of the server too: execute_sql changes the database (a backup is made
 first) and run_shell runs any command in the bot's container (files, logs, Python scripts, exports).
@@ -207,10 +210,6 @@ DEFAULTS: dict = {
     "ai_system_prompt": DEFAULT_SYSTEM_PROMPT,
     "maintenance": False,
     "agent_confirm": False,
-    "ai_engine": "gemini",        # "gemini" | "claude" — which model family runs the agent
-    "claude_scope": "admins",     # with ai_engine=claude: "admins" (only admins' chats) | "everyone"
-    "claude_model": "claude-opus-5-5",
-    "claude_effort": "medium",    # low | medium | high | xhigh | max
     "grades_categories": [330],  # Moodle categories shown on the grades page (with subcategories); [] = all
     "ai_model": "gemini-4-hydrogen",  # tried first; GEMINI_MODEL and the fallbacks follow  # ask the admin for ✅ before broadcasts, bans, deletions
     "default_offsets": DEFAULT_OFFSETS,

@@ -21,8 +21,7 @@ class Settings(BaseSettings):
     moodle_base: str = "https://moodle.uwed.uz"
     sync_interval_min: int = 30
 
-    # AI provider: "gemini" (default, free tier, text+image+audio) or "bedrock" (Claude)
-    ai_provider: str = "gemini"
+    # AI: Google Gemini (text, images, PDF, audio, video)
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.8-flash"
     # Tried in order when the main model is overloaded (503) or rate limited (429)
@@ -38,14 +37,6 @@ class Settings(BaseSettings):
     # Telegram voice messages longer than this are rejected (seconds)
     ai_max_voice_sec: int = 300
 
-    aws_region: str = "us-east-1"
-    # Claude as an alternative agent engine (admin panel → AI engine). Anthropic Console API key.
-    anthropic_api_key: str = ""
-    # Claude Opus 4.5 via cross-region inference profile (bedrock-runtime endpoint).
-    # Plain model id: anthropic.claude-opus-4-5-20251101-v1:0 ; the "us." prefix routes
-    # through the US cross-region inference profile, which this model requires.
-    bedrock_model_id: str = "us.anthropic.claude-opus-4-5-20251101-v1:0"
-    ai_max_tokens: int = 1500
 
     host: str = "0.0.0.0"
     port: int = 8000

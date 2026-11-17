@@ -1,14 +1,15 @@
 """The one place the UWED Pulse version lives. Bump it (and add to CHANGES) with every release."""
 
-VERSION = "3.2.0"
+VERSION = "3.3.0"
 RELEASED = "2026-11-15"
 
 # What's new, shown in the Mini App (tap the version): this release first, then the previous big one.
 CHANGES = {
     "uz": [
+        "🕵️ Admin agenti talabalar AI bilan nima haqida gaplaşayotganini körib, xulosa qilib beradi",
         "🛠 Admin uçun töliq boşqaruv: AI bazani özgartiradi (avval zaxira bilan) va serverda buyruq işlatadi",
         "🌐 AI internetdan qidiradi, havolalarni öqiydi va aniq hisob-kitob uçun kod işlatadi",
-        "🧠 Admin uçun: bot bazasidan istalgan statistika va Claude yoki Gemini dvigatelini tanlaş",
+        "🧠 Admin uçun: bot bazasidan istalgan statistika",
         "📛 Deadlinelar, eslatmalar va AI'da kurs kodi (xih_202627) örniga töliq kurs nomi",
         "🎓 Baholarda faqat joriy öquv dasturi kurslari (Moodle 330-kategoriya)",
         "⭕ Eng yaqin deadline uçun aylana taymer",
@@ -29,9 +30,10 @@ CHANGES = {
         "🔤 Yangi özbek lotin alifbosi",
     ],
     "ru": [
+        "🕵️ Агент админа видит, о чём студенты говорят с ИИ, и делает выводы",
         "🛠 Полный контроль для админа: ИИ меняет базу (с резервной копией) и выполняет команды на сервере",
         "🌐 ИИ ищет в интернете, читает ссылки и запускает код для точных расчётов",
-        "🧠 Для админов: любая статистика из базы бота и выбор движка — Claude или Gemini",
+        "🧠 Для админов: любая статистика из базы бота",
         "📛 Полные названия курсов вместо кодов (xih_202627) в дедлайнах, напоминаниях и ИИ",
         "🎓 В оценках только курсы текущей программы (категория Moodle 330)",
         "⭕ Кольцевой таймер до ближайшего дедлайна",
@@ -52,9 +54,10 @@ CHANGES = {
         "🔤 Новый узбекский латинский алфавит",
     ],
     "en": [
+        "🕵️ The admin agent sees what students discuss with the AI and sums it up",
         "🛠 Full control for admins: the AI edits the database (after a backup) and runs commands on the server",
         "🌐 The AI searches the web, reads links and runs code for exact calculations",
-        "🧠 For admins: any statistics from the bot database, and a choice of Claude or Gemini as the engine",
+        "🧠 For admins: any statistics from the bot database",
         "📛 Full course names instead of codes (xih_202627) in deadlines, reminders and the AI",
         "🎓 Grades show only the current programme's courses (Moodle category 330)",
         "⭕ A ring countdown to the next deadline",

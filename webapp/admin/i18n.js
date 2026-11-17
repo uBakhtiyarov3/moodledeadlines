@@ -99,8 +99,6 @@ UW.setDict({
   tts_enabled: { uz: "Ovozli javob", ru: "Голосовые ответы", en: "Voice replies" },
   ai_model: { uz: "AI model", ru: "Модель ИИ", en: "AI model" },
   ai_model_d: { uz: "Avval şu işlatiladi, band bölsa zaxira modellar", ru: "Сначала эта, при перегрузке — запасные", en: "Tried first; backups if it's busy" },
-  ai_engine: { uz: "Agent dvigateli", ru: "Движок агента", en: "Agent engine" },
-  claude_no_key: { uz: "Claude uçun serverda ANTHROPIC_API_KEY yöq", ru: "Для Claude нужен ANTHROPIC_API_KEY на сервере", en: "Claude needs ANTHROPIC_API_KEY on the server" },
   agent_confirm: { uz: "Tasdiqlaş tugmasi", ru: "Кнопка подтверждения", en: "Confirm button" },
   agent_confirm_d: { uz: "AI hammaga xabar, bloklaş va öçirişdan oldin ✅ söraydi", ru: "ИИ спрашивает ✅ перед рассылкой, баном и удалением", en: "The AI asks for ✅ before broadcasts, bans and deletions" },
   tts_d: { uz: "Ovozli savolga ovoz bilan ham javob beradi", ru: "На голосовой вопрос отвечает и голосом", en: "Answers voice questions with voice too" },
