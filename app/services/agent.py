@@ -301,6 +301,52 @@ async def check_new_grades(ctx: Ctx):
     return {"ok": True, "new_notifications": n}
 
 
+# ================================================================ the open world (everyone)
+
+@tool("web_search",
+      "Search the internet (Google) for current or outside information: news, facts, documentation, "
+      "prices, events, anything not in the knowledge base. Returns an answer with sources.",
+      {"query": S("what to find, as a full question")}, required=("query",), readonly=True)
+async def web_search(ctx: Ctx, query: str):
+    from app.services import ai
+
+    return await ai.gemini_builtin(f"Search the web and answer with the key facts and dates: {query}", "google_search")
+
+
+@tool("fetch_url",
+      "Open a public web page or file (http/https) and read its text: articles, PDFs, Word documents, "
+      "JSON, plain text.",
+      {"url": S("full http(s) URL")}, required=("url",), readonly=True)
+async def fetch_url(ctx: Ctx, url: str):
+    from app.services import webfetch
+
+    return await webfetch.fetch(url)
+
+
+@tool("compute",
+      "Run Python in a secure Google sandbox for exact calculations, statistics, data analysis, unit "
+      "conversion, checking solutions. Describe the task and give all the data.",
+      {"task": S("what to compute, with the data")}, required=("task",), readonly=True)
+async def compute(ctx: Ctx, task: str):
+    from app.services import ai
+
+    return await ai.gemini_builtin(f"Write and run Python code to do this exactly, then state the result: {task}", "code_execution")
+
+
+@tool("query_database",
+      "Read-only SQL (SELECT/WITH) on the bot's own database for any statistics or lookup. Tables: users "
+      "(id, first_name, username, lang, is_admin, is_banned, blocked_bot, created_at, last_seen_at, "
+      "ai_used_today, paused, offsets, muted_courses, last_sync_at), deadlines (user_id, title, course, "
+      "due_at, completed, hidden, gone), chat_messages (user_id, role, content, created_at), "
+      "support_messages, broadcasts, knowledge_docs, profiles (user_id, faculty, year, group_name, about, "
+      "memory), tasks, reminder_log, course_names, grades_seen, hidden_courses, settings. Max 200 rows.",
+      {"sql": S("one SELECT or WITH statement")}, required=("sql",), admin=True, readonly=True)
+async def query_database(ctx: Ctx, sql: str):
+    from app.services import dbquery
+
+    return await dbquery.run(sql)
+
+
 # ================================================================ Telegram UI (everyone)
 
 APP_SECTIONS = ("deadlines", "ai", "support", "settings", "connect")
@@ -582,6 +628,10 @@ def _settings_summary(a: dict) -> str | None:
        "ai_model": S("Gemini model id tried first, e.g. gemini-4-hydrogen, gemini-3.8-flash"),
        "grades_categories": {"type": "array", "items": {"type": "integer"},
                              "description": "Moodle category ids whose courses (with subcategories) the grades page shows; [] = all"},
+       "ai_engine": S("which model family runs the assistant", enum=["gemini", "claude"]),
+       "claude_scope": S("with ai_engine=claude: only admins' chats, or everyone", enum=["admins", "everyone"]),
+       "claude_model": S("Claude model id, e.g. claude-opus-5-5, claude-sonnet-5-5"),
+       "claude_effort": S("Claude thinking effort", enum=["low", "medium", "high", "xhigh", "max"]),
        "agent_confirm": B("ask the admin for ✅ before broadcasts, bans, deletions, switching off"),
        "ai_daily_limit": I("AI questions per student per day"),
        "ai_system_prompt": S("extra instructions for the AI (admin notes), full new text"),

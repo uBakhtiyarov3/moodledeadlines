@@ -14,7 +14,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import Session
 from app.models import ChatMessage, Deadline, User
-from app.services import agent, coursenames, kb, profile, users
+from app.services import agent, claude_agent, coursenames, kb, profile, users
 from app.services import settings as rt
 from app.version import RELEASED, VERSION, changes
 
@@ -260,6 +260,40 @@ async def _gemini_parts(system: str, contents: list[dict], tools: list[dict] | N
     raise AIUnavailable("error")
 
 
+async def gemini_builtin(prompt: str, builtin: str) -> dict:
+    """One call with a Gemini built-in tool: "google_search" (grounded web answer) or "code_execution"."""
+    st = get_settings()
+    if not st.gemini_api_key:
+        return {"error": "Gemini is not configured"}
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "tools": [{builtin: {}}],
+            "generationConfig": {"maxOutputTokens": 8192}}
+    r = None
+    async with _http() as c:
+        for model in _models():
+            try:
+                r = await c.post(GEMINI_URL.format(model=model), headers={"x-goog-api-key": st.gemini_api_key}, json=body)
+            except httpx.TimeoutException:
+                continue
+            if r.status_code in (*RETRYABLE, 404):
+                continue
+            break
+    if r is None or r.status_code != 200:
+        return {"error": f"search/compute unavailable ({r.status_code if r is not None else 'timeout'})"}
+    cands = r.json().get("candidates") or [{}]
+    cand = cands[0]
+    parts = (cand.get("content") or {}).get("parts") or []
+    out = {"answer": "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()}
+    code = [p["executableCode"].get("code", "") for p in parts if p.get("executableCode")]
+    runs = [p["codeExecutionResult"].get("output", "") for p in parts if p.get("codeExecutionResult")]
+    if code:
+        out["code"], out["output"] = code, runs
+    chunks = (cand.get("groundingMetadata") or {}).get("groundingChunks") or []
+    sources = [{"title": ch["web"].get("title"), "url": ch["web"].get("uri")} for ch in chunks if ch.get("web")]
+    if sources:
+        out["sources"] = sources[:10]
+    return out
+
+
 @dataclass
 class Status:
     """Progress shown while the agent runs a tool (not part of the answer)."""
@@ -445,9 +479,11 @@ async def ask_stream(user: User, question: str, media: list[Media] | None = None
     ctx = ctx or agent.Ctx(user=user)
     lang, system, turns = await _prepare(user, question, media, scheduled=ctx.scheduled)
     tools = agent.declarations(ctx.user, scheduled=ctx.scheduled)
+    engine = engine_for(ctx.user, media)
+    run = claude_agent.run(system, turns, ctx, tools) if engine == "claude" else _agent(system, turns, ctx, tools)
     answer = ""
     try:
-        async for chunk in _agent(system, turns, ctx, tools):
+        async for chunk in run:
             if isinstance(chunk, str):
                 answer += chunk
             yield chunk
@@ -464,6 +500,15 @@ async def ask_stream(user: User, question: str, media: list[Media] | None = None
         answer = REFUSAL.get(lang, REFUSAL["en"]) if not (ctx.done or ctx.pending) else "✅"
         yield answer
     await _save(user.id, question, media, answer.strip())
+
+
+def engine_for(user: User, media: list[Media] | None = None) -> str:
+    """'claude' when the admin picked it for this person and Claude can read the input, else 'gemini'."""
+    if rt.get("ai_engine") != "claude" or not claude_agent.available():
+        return "gemini"
+    if rt.get("claude_scope") != "everyone" and not users.is_admin(user):
+        return "gemini"
+    return "claude" if claude_agent.can_read(media or []) else "gemini"  # voice/video → Gemini
 
 
 async def run_scheduled(user: User, instruction: str, bot) -> str:

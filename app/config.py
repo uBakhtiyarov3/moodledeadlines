@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     ai_max_voice_sec: int = 300
 
     aws_region: str = "us-east-1"
+    # Claude as an alternative agent engine (admin panel → AI engine). Anthropic Console API key.
+    anthropic_api_key: str = ""
     # Claude Opus 4.5 via cross-region inference profile (bedrock-runtime endpoint).
     # Plain model id: anthropic.claude-opus-4-5-20251101-v1:0 ; the "us." prefix routes
     # through the US cross-region inference profile, which this model requires.

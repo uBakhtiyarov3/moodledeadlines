@@ -1,11 +1,13 @@
 """The one place the UWED Pulse version lives. Bump it (and add to CHANGES) with every release."""
 
-VERSION = "3.0.3"
+VERSION = "3.1.0"
 RELEASED = "2026-11-15"
 
 # What's new, shown in the Mini App (tap the version): this release first, then the previous big one.
 CHANGES = {
     "uz": [
+        "🌐 AI internetdan qidiradi, havolalarni öqiydi va aniq hisob-kitob uçun kod işlatadi",
+        "🧠 Admin uçun: bot bazasidan istalgan statistika va Claude yoki Gemini dvigatelini tanlaş",
         "📛 Deadlinelar, eslatmalar va AI'da kurs kodi (xih_202627) örniga töliq kurs nomi",
         "🎓 Baholarda faqat joriy öquv dasturi kurslari (Moodle 330-kategoriya)",
         "⭕ Eng yaqin deadline uçun aylana taymer",
@@ -26,6 +28,8 @@ CHANGES = {
         "🔤 Yangi özbek lotin alifbosi",
     ],
     "ru": [
+        "🌐 ИИ ищет в интернете, читает ссылки и запускает код для точных расчётов",
+        "🧠 Для админов: любая статистика из базы бота и выбор движка — Claude или Gemini",
         "📛 Полные названия курсов вместо кодов (xih_202627) в дедлайнах, напоминаниях и ИИ",
         "🎓 В оценках только курсы текущей программы (категория Moodle 330)",
         "⭕ Кольцевой таймер до ближайшего дедлайна",
@@ -46,6 +50,8 @@ CHANGES = {
         "🔤 Новый узбекский латинский алфавит",
     ],
     "en": [
+        "🌐 The AI searches the web, reads links and runs code for exact calculations",
+        "🧠 For admins: any statistics from the bot database, and a choice of Claude or Gemini as the engine",
         "📛 Full course names instead of codes (xih_202627) in deadlines, reminders and the AI",
         "🎓 Grades show only the current programme's courses (Moodle category 330)",
         "⭕ A ring countdown to the next deadline",

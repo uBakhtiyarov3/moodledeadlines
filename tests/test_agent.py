@@ -425,3 +425,91 @@ async def test_full_course_names_replace_calendar_codes(client):  # noqa: F811
 
     await coursenames.load()  # survives a restart
     assert coursenames.full("xih_202627").startswith("Xalqaro investitsiya")
+
+
+class FakeClaude:
+    """Just enough of AsyncAnthropic.beta.messages.stream for the agent loop."""
+
+    def __init__(self, replies):
+        self.replies, self.calls = list(replies), []
+        self.beta = SimpleNamespace(messages=SimpleNamespace(stream=self.stream))
+
+    def stream(self, **params):
+        self.calls.append(params)
+        reply = self.replies.pop(0)
+
+        class Stream:
+            async def __aenter__(s):
+                async def gen():
+                    for b in reply:
+                        if b.type == "text":
+                            yield b.text
+                s.text_stream = gen()
+                return s
+
+            async def __aexit__(s, *a):
+                return False
+
+            async def get_final_message(s):
+                return SimpleNamespace(content=reply, stop_reason="tool_use" if any(b.type == "tool_use" for b in reply) else "end_turn")
+
+        return Stream()
+
+
+from types import SimpleNamespace  # noqa: E402
+
+
+async def test_claude_engine_for_admins(client, monkeypatch):  # noqa: F811
+    from app.services import claude_agent
+
+    tool_use = SimpleNamespace(type="tool_use", id="tu1", name="bot_stats", input={})
+    fake = FakeClaude([[SimpleNamespace(type="text", text="Tekshiraman."), tool_use],
+                       [SimpleNamespace(type="text", text="Botda 2 ta user bor.")]])
+    monkeypatch.setattr(get_settings(), "anthropic_api_key", "sk-test")
+    monkeypatch.setattr(claude_agent, "client", lambda: fake)
+    monkeypatch.setattr(profile, "learn_later", lambda *a: None)
+    monkeypatch.setitem(rt._cache, "ai_engine", "claude")
+    await client.get("/api/me", headers=auth(331))
+
+    r = await client.post("/api/ai", headers=auth(1, "Boss"), json={"message": "nechta user bor?"})
+    assert r.json()["answer"] == "Tekshiraman.\n\nBotda 2 ta user bor."
+    first, second = fake.calls
+    assert first["model"] == "claude-opus-5-5" and first["fallbacks"] == "default"
+    assert "query_database" in {t["name"] for t in first["tools"]}
+    assert first["tools"][0]["input_schema"]["type"] == "object"
+    result = second["messages"][-1]["content"][0]
+    assert result["type"] == "tool_result" and result["tool_use_id"] == "tu1" and '"users"' in result["content"]
+    assert second["messages"][-2]["content"][1] is tool_use  # the assistant turn goes back unchanged
+
+    async with Session() as s:
+        admin, student = await s.get(User, 1), await s.get(User, 331)
+    assert ai.engine_for(student) == "gemini"  # scope "admins"
+    monkeypatch.setitem(rt._cache, "claude_scope", "everyone")
+    assert ai.engine_for(student) == "claude"
+    assert ai.engine_for(admin, [ai.Media("audio", "audio/ogg", b"x")]) == "gemini"  # voice stays on Gemini
+    monkeypatch.setattr(get_settings(), "anthropic_api_key", "")
+    assert ai.engine_for(admin) == "gemini"  # no key → Gemini
+
+
+async def test_open_world_tools(client, gemini):  # noqa: F811
+    from app.services import dbquery, webfetch
+
+    await client.get("/api/me", headers=auth(332))
+    r = await dbquery.run("SELECT id, lang FROM users WHERE id = 332")
+    assert r["columns"] == ["id", "lang"] and r["rows"] == [[332, "uz"]]
+    for bad in ("DELETE FROM users", "SELECT 1; DROP TABLE users", "UPDATE users SET lang='en'", "PRAGMA writable_schema=1"):
+        assert "error" in await dbquery.run(bad), bad
+    assert "error" in await dbquery.run("WITH x AS (SELECT 1) DELETE FROM users")
+    assert (await client.patch("/api/me", headers=auth(332), json={"lang": "ru"})).json()["lang"] == "ru"  # writes still work
+
+    for url in ("http://127.0.0.1:8000/", "http://169.254.169.254/computeMetadata/v1/", "file:///etc/passwd", "http://localhost/"):
+        assert "error" in await webfetch.fetch(url), url
+    assert webfetch.html_text("<html><head><title>x</title></head><body><script>bad()</script><h1>Salom</h1><p>dunyo &amp; biz</p></body>") == "Salom\ndunyo & biz"
+
+    script, sent = gemini
+    script.append(httpx.Response(200, json={"candidates": [{"content": {"parts": [
+        {"executableCode": {"code": "print(2**10)"}}, {"codeExecutionResult": {"output": "1024\n"}}, {"text": "1024"}]},
+        "groundingMetadata": {"groundingChunks": [{"web": {"uri": "https://example.org", "title": "Ex"}}]}}]}))
+    r = await ai.gemini_builtin("2**10", "code_execution")
+    assert r["answer"] == "1024" and r["output"] == ["1024\n"] and r["sources"][0]["url"] == "https://example.org"
+    assert sent[-1]["tools"] == [{"code_execution": {}}]

@@ -270,7 +270,9 @@ async def kb_delete(did: int):
 
 @router.get("/settings")
 async def get_settings_():
-    return rt.all_settings()
+    from app.services import claude_agent
+
+    return {**rt.all_settings(), "claude_ready": claude_agent.available()}
 
 
 @router.put("/settings")
@@ -289,6 +291,14 @@ async def put_settings(values: dict):
         clean["ai_model"] = model
     if "grades_categories" in values:
         clean["grades_categories"] = sorted({int(c) for c in values["grades_categories"] or [] if str(c).isdigit()})
+    if values.get("ai_engine") in ("gemini", "claude"):
+        clean["ai_engine"] = values["ai_engine"]
+    if values.get("claude_scope") in ("admins", "everyone"):
+        clean["claude_scope"] = values["claude_scope"]
+    if "claude_model" in values and re.fullmatch(r"claude-[a-z0-9.\-]{1,60}", str(values["claude_model"] or "")):
+        clean["claude_model"] = values["claude_model"]
+    if values.get("claude_effort") in ("low", "medium", "high", "xhigh", "max"):
+        clean["claude_effort"] = values["claude_effort"]
     if "agent_confirm" in values:
         clean["agent_confirm"] = bool(values["agent_confirm"])
     if "ai_daily_limit" in values:
