@@ -115,14 +115,18 @@ async def test_permissions_and_scheduled_runs(client):  # noqa: F811
     r = await agent.call(agent.Ctx(user=student), "broadcast", {"text": "hi"})
     assert "not available" in r["error"]
     r = await agent.call(agent.Ctx(user=admin, scheduled=True), "kb_add", {"title": "a", "content": "b"})
-    assert "not available" in r["error"]  # scheduled runs are read-only
+    assert r["ok"]  # an admin's scheduled task runs with the full agent
+    r = await agent.call(agent.Ctx(user=student, scheduled=True), "mark_deadline", {"deadline_id": 1})
+    assert "not available" in r["error"]  # a student's scheduled task stays read-only
     assert "error" not in await agent.call(agent.Ctx(user=admin, scheduled=True), "bot_stats", {})
     # every read-only tool answers with plain JSON (it goes straight back to Gemini)
     for name, t in agent.TOOLS.items():
         if t.readonly and not t.required:
             json.dumps(await agent.call(agent.Ctx(user=admin), name, {}))
     names = {d["name"] for d in agent.declarations(admin, scheduled=True)}
-    assert "list_deadlines" in names and "schedule_task" not in names and "broadcast" not in names
+    assert {"list_deadlines", "broadcast", "message_user", "personalised_messages"} <= names and "schedule_task" not in names
+    student_names = {d["name"] for d in agent.declarations(student, scheduled=True)}
+    assert "list_deadlines" in student_names and not student_names & {"message_admin", "mark_deadline", "schedule_task"}
 
 
 class FakeBot:
@@ -639,3 +643,27 @@ async def test_agent_sends_voice_and_personal_messages(client, monkeypatch):  # 
     assert report and "**" in report[0].rich_message.markdown
     log = (await agent.call(ctx, "sent_messages", {"user_id": 392}))["sent"]
     assert log[0]["text"] == "Salom Vali! Imtihon haftasi boşlandi." and log[0]["via"] == "personalised text"
+
+
+
+async def test_admin_scheduled_task_sends_messages(client, gemini, monkeypatch):  # noqa: F811
+    """'At 18:00 send message 4 to the VIPs' — the scheduled run really sends it, no ✅ needed."""
+    from app.services import broadcast as bc
+
+    async def sent_ok(bot, chat_id, html, kb):
+        return True
+
+    monkeypatch.setattr(bc, "send_one", sent_ok)
+    monkeypatch.setitem(rt._cache, "agent_confirm", True)  # even with confirmations on
+    script, sent = gemini
+    script += [sse({"functionCall": {"name": "message_user", "args": {"user_id": 401, "text": "4-xabar: VIP uçrashuv 18:30 da"}}}),
+               sse({"text": "✅ 4-xabar VIP talabaga yuborildi."})]
+    await client.get("/api/me", headers=auth(1, "Boss"))
+    await client.get("/api/me", headers=auth(401, name="Vip"))
+    async with Session() as s:
+        admin = await s.get(User, 1)
+    report = await ai.run_scheduled(admin, "VIP talabalarga 4-xabarni yubor", FakeBot())
+    assert report == "✅ 4-xabar VIP talabaga yuborildi."
+    assert "message_user" in {d["name"] for d in sent[0]["tools"][0]["functionDeclarations"]}
+    log = (await agent.call(agent.Ctx(user=admin), "sent_messages", {"user_id": 401}))["sent"]
+    assert log[0]["text"] == "4-xabar: VIP uçrashuv 18:30 da"

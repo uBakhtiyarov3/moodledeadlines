@@ -27,7 +27,7 @@ CONFIRM_TTL = timedelta(hours=1)
 class Ctx:
     user: User
     bot: Bot | None = None
-    scheduled: bool = False  # running a scheduled task: read-only tools only
+    scheduled: bool = False  # running a scheduled task (see allowed())
     pending: list[dict] = field(default_factory=list)  # actions shown with ✅/❌ buttons
     buttons: list[dict] = field(default_factory=list)  # inline buttons for the reply (reply_buttons)
     chat_id: int | None = None  # the Telegram message being answered (for reactions)
@@ -83,21 +83,35 @@ def B(desc: str) -> dict:
     return {"type": "boolean", "description": desc}
 
 
-def declarations(user: User, scheduled: bool = False) -> list[dict]:
+# A scheduled run must not schedule more of itself (no runaway chains).
+NOT_IN_SCHEDULED = {"schedule_task"}
+
+
+def allowed(t: Tool, user: User, scheduled: bool) -> bool:
+    """Admins' scheduled tasks run with the full agent (the admin ordered them); students' stay read-only."""
     admin = users.is_admin(user)
-    return [
-        t.declaration() for t in TOOLS.values()
-        if (admin or not t.admin) and (not scheduled or t.readonly)
-    ]
+    if t.admin and not admin:
+        return False
+    if scheduled:
+        return t.name not in NOT_IN_SCHEDULED and (admin or t.readonly)
+    return True
+
+
+def declarations(user: User, scheduled: bool = False) -> list[dict]:
+    return [t.declaration() for t in TOOLS.values() if allowed(t, user, scheduled)]
 
 
 async def call(ctx: Ctx, name: str, args: dict) -> dict:
     t = TOOLS.get(name)
-    if t is None or (t.admin and not users.is_admin(ctx.user)) or (ctx.scheduled and not t.readonly):
+    if t is None or not allowed(t, ctx.user, ctx.scheduled):
         return {"error": f"tool {name} is not available here"}
     args = dict(args or {})
-    summary = t.confirm(args) if t.confirm and rt.get("agent_confirm") else None
+    # in a scheduled run the admin approved the task when scheduling it; nobody is there to press ✅
+    summary = t.confirm(args) if t.confirm and rt.get("agent_confirm") and not ctx.scheduled else None
     if not summary and t.guard and ctx.tainted:
+        if ctx.scheduled:
+            return {"error": "this run read outside text (a web page or a student's message), so a server or "
+                             "database change needs the admin's ✅ — do it in a chat with the admin instead"}
         summary = t.guard(args)
     if summary:
         async with Session() as s:
@@ -225,9 +239,11 @@ async def forget_memory(ctx: Ctx, text: str = "", all: bool = False):  # noqa: A
 
 
 @tool("schedule_task",
-      "Do something for the person later. kind=reminder sends `text` to them at run_at. kind=agent runs "
-      "you at run_at with `text` as the instruction (e.g. 'list my deadlines for today') and sends them "
-      "the answer (read-only tools only then). run_at is Tashkent time 'YYYY-MM-DD HH:MM'.",
+      "Do something later. kind=reminder sends `text` to the person at run_at. kind=agent runs you at run_at "
+      "with `text` as the instruction and sends the person the result — for an admin with ALL your tools "
+      "(e.g. 'at 18:00 send message 4 to the VIP students', 'every Monday 9:00 send everyone a personalised "
+      "voice digest'); for a student with read-only tools ('list my deadlines for today'). "
+      "run_at is Tashkent time 'YYYY-MM-DD HH:MM'.",
       {"kind": S("reminder | agent", enum=["reminder", "agent"]), "text": S("reminder text or instruction"),
        "run_at": S("'YYYY-MM-DD HH:MM', Tashkent time"),
        "repeat": S("once | daily | weekdays | weekly", enum=["once", "daily", "weekdays", "weekly"])},

@@ -393,7 +393,8 @@ async def _prepare(user: User, question: str, media: list[Media], as_student: bo
         turns.pop(0)
     if scheduled:
         system += ("\n\nThis is a SCHEDULED TASK the person set up earlier; they are not chatting now. Do the "
-                   "instruction and write the result for them. Only read-only tools are available.")
+                   "instruction now with your tools (it was approved when it was scheduled — don't ask for "
+                   "confirmation), then write a short report of what you did for them.")
     turns.append({"role": "user", "text": question, "media": media})
     return u.lang, system, turns
 

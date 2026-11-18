@@ -1,6 +1,6 @@
 """The one place the UWED Pulse version lives. Bump it (and add to CHANGES) with every release."""
 
-VERSION = "3.5.0"
+VERSION = "3.5.1"
 RELEASED = "2026-11-15"
 
 # What's new, shown to students in the Mini App (tap the version), newest first.
